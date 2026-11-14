@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import logging
+import time
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -22,6 +23,9 @@ _HELPER_DOMAINS = (
     "counter",
     "schedule",
 )
+
+_HISTORY_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_CACHE_TTL_SECONDS = 180.0
 
 
 def compute_summary(hass: HomeAssistant, config: dict[str, Any]) -> dict[str, Any]:
@@ -198,6 +202,13 @@ async def async_get_history(
     if not clean_ids:
         return {"start_ms": 0, "end_ms": 0, "series": {}}
 
+    cache_key = f"{','.join(sorted(clean_ids))}_{hours}_{max_points}"
+    now_ts = time.time()
+    if cache_key in _HISTORY_CACHE:
+        exp, cached_res = _HISTORY_CACHE[cache_key]
+        if now_ts < exp:
+            return cached_res
+
     end_time = dt_util.utcnow()
     start_time = end_time - timedelta(hours=hours)
     start_ms = int(start_time.timestamp() * 1000)
@@ -220,7 +231,7 @@ async def async_get_history(
             start_time,
             end_time,
             entity_ids=clean_ids,
-            significant_changes_only=False,
+            significant_changes_only=True,
             minimal_response=not needs_attrs,
             no_attributes=not needs_attrs,
             include_start_time_state=True,
@@ -321,8 +332,10 @@ async def async_get_history(
             "current": vals[-1] if vals else None,
         }
 
-    return {
+    result = {
         "start_ms": start_ms,
         "end_ms": end_ms,
         "series": series_out,
     }
+    _HISTORY_CACHE[cache_key] = (now_ts + _CACHE_TTL_SECONDS, result)
+    return result

@@ -675,7 +675,7 @@ export const settingsMethods = {
       <!-- Settings Navigation Tabs -->
       <div class="nav-tabs" style="display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px;">
         <button class="nav-tab ${activeTab === 'rooms' ? 'active' : ''}" data-stab="rooms" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:home-outline" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('rooms_and_cards')} (${rooms.length})</button>
-        <button class="nav-tab ${activeTab === 'overlays' ? 'active' : ''}" data-stab="overlays" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:folder-outline" style="--mdc-icon-size:16px;"></ha-icon> Raum-Overlays</button>
+        <button class="nav-tab ${activeTab === 'overlays' ? 'active' : ''}" data-stab="overlays" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:folder-outline" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('controls_categories') || 'Raum-Kategorien & Schalterzentrale'}</button>
         <button class="nav-tab ${activeTab === 'dock' ? 'active' : ''}" data-stab="dock" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:dock-bottom" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('dock_navigation')}</button>
         <button class="nav-tab ${activeTab === 'controls' ? 'active' : ''}" data-stab="controls" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:tune" style="--mdc-icon-size:16px;"></ha-icon> Helfer-Kontrollen</button>
         <button class="nav-tab ${activeTab === 'stats' ? 'active' : ''}" data-stab="stats" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:chart-timeline-variant" style="--mdc-icon-size:16px;"></ha-icon> Statistiken</button>
@@ -726,12 +726,47 @@ export const settingsMethods = {
 
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-top:6px;border-top:1px dashed var(--border-subtle);padding-top:8px;">
                 <div class="row">
-                  <label style="display:inline-flex;align-items:center;gap:4px;"><ha-icon icon="mdi:lightbulb" style="--mdc-icon-size:14px;"></ha-icon> Beleuchtung (light.*)</label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;"><ha-icon icon="mdi:lightbulb" style="--mdc-icon-size:14px;"></ha-icon> Hauptbeleuchtung (light.*)</label>
                   <div style="display:flex;gap:4px;align-items:center;">
                     <input type="text" list="dl_all_entities" class="in-room-prop" data-ridx="${rIdx}" data-prop="light_entity" value="${r.light_entity || ''}" placeholder="light.livingroom" style="flex:1;">
                     <button type="button" class="btn btn-sm btn-pick-entity" data-ridx="${rIdx}" data-prop="light_entity" title="Entität suchen..." style="padding:6px 9px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon></button>
                   </div>
                 </div>
+
+                <!-- Room Lights (Multi-Entity List) -->
+                <div class="row" style="grid-column: 1 / -1; background: var(--bg-surface); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle); margin-top: 2px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-primary);">
+                      <ha-icon icon="mdi:lightbulb-group-outline" style="--mdc-icon-size:16px;color:var(--accent);"></ha-icon>
+                      <span>${this._t('room_lights') || 'Zusätzliche Leuchten / Leuchtenliste'} (${((r.lights && Array.isArray(r.lights)) ? r.lights : this._ensureRoomLights(r)).length})</span>
+                    </label>
+                    <button type="button" class="btn btn-sm btn-add-room-light" data-ridx="${rIdx}" style="padding:4px 8px;font-size:11px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                      <ha-icon icon="mdi:plus" style="--mdc-icon-size:13px;"></ha-icon> Leuchte hinzufügen
+                    </button>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;min-height:30px;align-items:center;">
+                    ${(() => {
+                      const lightsList = (r.lights && Array.isArray(r.lights)) ? r.lights : this._ensureRoomLights(r);
+                      if (lightsList.length === 0) {
+                        return `<span style="font-size:11px;color:var(--text-secondary);">Keine weiteren Leuchten zugeordnet. Klicke auf "+ Leuchte hinzufügen".</span>`;
+                      }
+                      return lightsList.map((lId, lIdx) => {
+                        const s = this._hass && this._hass.states[lId];
+                        const fname = s?.attributes?.friendly_name || lId;
+                        return `
+                          <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 8px;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:16px;font-size:11px;color:var(--text-primary);">
+                            <ha-icon icon="mdi:lightbulb" style="--mdc-icon-size:12px;color:#f59e0b;"></ha-icon>
+                            <span title="${lId}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fname}</span>
+                            <button type="button" class="btn-del-room-light" data-ridx="${rIdx}" data-lidx="${lIdx}" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:0;display:flex;align-items:center;" title="Entfernen">
+                              <ha-icon icon="mdi:close" style="--mdc-icon-size:12px;"></ha-icon>
+                            </button>
+                          </span>
+                        `;
+                      }).join('');
+                    })()}
+                  </div>
+                </div>
+
                 <div class="row">
                   <label style="display:inline-flex;align-items:center;gap:4px;"><ha-icon icon="mdi:thermometer" style="--mdc-icon-size:14px;"></ha-icon> Thermostat (climate.*)</label>
                   <div style="display:flex;gap:4px;align-items:center;">
@@ -744,6 +779,37 @@ export const settingsMethods = {
                   <div style="display:flex;gap:4px;align-items:center;">
                     <input type="text" list="dl_all_entities" class="in-room-prop" data-ridx="${rIdx}" data-prop="target_temp_entity" value="${r.target_temp_entity || ''}" placeholder="input_number.*_komfort_temperatur" style="flex:1;">
                     <button type="button" class="btn btn-sm btn-pick-entity" data-ridx="${rIdx}" data-prop="target_temp_entity" title="Entität suchen..." style="padding:6px 9px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon></button>
+                  </div>
+                </div>
+
+                <!-- Eco & Komfort Presets & Helfer -->
+                <div class="row" style="grid-column: 1 / -1; background: var(--bg-surface); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle); margin-top: 2px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                    <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;">
+                      <input type="checkbox" class="chk-enable-eco-comfort" data-ridx="${rIdx}" ${r.enable_eco_comfort !== false ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);">
+                      <span>${this._t('enable_eco_comfort') || 'Eco- & Komfort-Presets aktivieren'}</span>
+                    </label>
+                    <span style="font-size:11px;color:var(--text-secondary);">Regler & Helfer für Eco- / Komfort-Temperatur im Heizungsmodal</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;padding-top:6px;border-top:1px dashed var(--border-subtle);">
+                    <div>
+                      <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);margin-bottom:4px;">
+                        <ha-icon icon="mdi:sofa" style="--mdc-icon-size:13px;color:#f59e0b;"></ha-icon> ${this._t('comfort_helper') || 'Komfort-Temperatur Helfer'} (input_number.*)
+                      </label>
+                      <div style="display:flex;gap:4px;align-items:center;">
+                        <input type="text" list="dl_all_entities" class="in-room-prop" data-ridx="${rIdx}" data-prop="comfort_temp_helper" value="${r.comfort_temp_helper || ''}" placeholder="input_number.*_komfort_temperatur" style="flex:1;">
+                        <button type="button" class="btn btn-sm btn-pick-entity" data-ridx="${rIdx}" data-prop="comfort_temp_helper" title="Entität suchen..." style="padding:6px 9px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon></button>
+                      </div>
+                    </div>
+                    <div>
+                      <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);margin-bottom:4px;">
+                        <ha-icon icon="mdi:leaf" style="--mdc-icon-size:13px;color:#10b981;"></ha-icon> ${this._t('eco_helper') || 'Eco-Temperatur Helfer'} (input_number.*)
+                      </label>
+                      <div style="display:flex;gap:4px;align-items:center;">
+                        <input type="text" list="dl_all_entities" class="in-room-prop" data-ridx="${rIdx}" data-prop="eco_temp_helper" value="${r.eco_temp_helper || ''}" placeholder="input_number.*_eco_temperatur" style="flex:1;">
+                        <button type="button" class="btn btn-sm btn-pick-entity" data-ridx="${rIdx}" data-prop="eco_temp_helper" title="Entität suchen..." style="padding:6px 9px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon></button>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div class="row">
@@ -954,10 +1020,10 @@ export const settingsMethods = {
         </div>
       </div>
 
-      <!-- TAB 2: RAUM-OVERLAYS (KATEGORIEN) -->
+      <!-- TAB 2: RAUM-OVERLAYS & SCHALTERZENTRALE (KATEGORIEN) -->
       <div id="stabContentOverlays" style="${activeTab === 'overlays' ? '' : 'display:none;'}">
         <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">
-          Konfiguriere individuelle Kategorien und Entitäten-Listen für die Raum-Detail-Overlays beim Anklicken einer Bento-Kachel.
+          Konfiguriere individuelle Kategorien und Schalter/Helfer pro Raum für die Schalterzentrale und die Raum-Detail-Overlays.
         </div>
         <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
           <label style="font-size:12px;font-weight:600;">Raum auswählen:</label>
@@ -970,7 +1036,7 @@ export const settingsMethods = {
             const rIdx = this._settingsOverlayRoomIdx || 0;
             const r = rooms[rIdx];
             if (!r) return '<div>Kein Raum ausgewählt</div>';
-            const cats = this._ensureRoomOverlayCategories(r);
+            const cats = this._ensureRoomControlsCategories(r);
             return `
               <div style="display:flex;flex-direction:column;gap:12px;">
                 ${cats.map((cat, cIdx) => `
@@ -1862,8 +1928,9 @@ export const settingsMethods = {
         const rIdx = this._settingsOverlayRoomIdx || 0;
         const r = this._config.rooms && this._config.rooms[rIdx];
         if (r) {
-          const cats = this._ensureRoomOverlayCategories(r);
-          cats.push({ id: 'cat_' + Date.now(), name: 'Neue Kategorie', entities: [] });
+          const cats = this._ensureRoomControlsCategories(r);
+          cats.push({ id: 'cat_' + Date.now(), name: 'Neue Kategorie', icon: 'mdi:tune-vertical', entities: [] });
+          r.overlay_categories = JSON.parse(JSON.stringify(cats));
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -1874,8 +1941,10 @@ export const settingsMethods = {
         const rIdx = this._settingsOverlayRoomIdx || 0;
         const cIdx = parseInt(b.getAttribute('data-cidx'));
         const r = this._config.rooms && this._config.rooms[rIdx];
-        if (r?.overlay_categories) {
-          r.overlay_categories.splice(cIdx, 1);
+        const cats = r ? this._ensureRoomControlsCategories(r) : null;
+        if (cats && cats[cIdx]) {
+          cats.splice(cIdx, 1);
+          r.overlay_categories = JSON.parse(JSON.stringify(cats));
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -1886,10 +1955,12 @@ export const settingsMethods = {
         const rIdx = this._settingsOverlayRoomIdx || 0;
         const cIdx = parseInt(b.getAttribute('data-cidx'));
         const r = this._config.rooms && this._config.rooms[rIdx];
-        if (r?.overlay_categories && cIdx > 0) {
-          const tmp = r.overlay_categories[cIdx];
-          r.overlay_categories[cIdx] = r.overlay_categories[cIdx - 1];
-          r.overlay_categories[cIdx - 1] = tmp;
+        const cats = r ? this._ensureRoomControlsCategories(r) : null;
+        if (cats && cIdx > 0) {
+          const tmp = cats[cIdx];
+          cats[cIdx] = cats[cIdx - 1];
+          cats[cIdx - 1] = tmp;
+          r.overlay_categories = JSON.parse(JSON.stringify(cats));
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -1900,10 +1971,12 @@ export const settingsMethods = {
         const rIdx = this._settingsOverlayRoomIdx || 0;
         const cIdx = parseInt(b.getAttribute('data-cidx'));
         const r = this._config.rooms && this._config.rooms[rIdx];
-        if (r?.overlay_categories && cIdx < r.overlay_categories.length - 1) {
-          const tmp = r.overlay_categories[cIdx];
-          r.overlay_categories[cIdx] = r.overlay_categories[cIdx + 1];
-          r.overlay_categories[cIdx + 1] = tmp;
+        const cats = r ? this._ensureRoomControlsCategories(r) : null;
+        if (cats && cIdx < cats.length - 1) {
+          const tmp = cats[cIdx];
+          cats[cIdx] = cats[cIdx + 1];
+          cats[cIdx + 1] = tmp;
+          r.overlay_categories = JSON.parse(JSON.stringify(cats));
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -1914,8 +1987,10 @@ export const settingsMethods = {
         const rIdx = this._settingsOverlayRoomIdx || 0;
         const cIdx = parseInt(btn.getAttribute('data-cidx'));
         const r = this._config.rooms && this._config.rooms[rIdx];
-        if (!r?.overlay_categories?.[cIdx]) return;
-        const cat = r.overlay_categories[cIdx];
+        if (!r) return;
+        const cats = this._ensureRoomControlsCategories(r);
+        const cat = cats[cIdx];
+        if (!cat) return;
         if (!cat.entities) cat.entities = [];
 
         this._showEntityPicker({
@@ -1926,6 +2001,7 @@ export const settingsMethods = {
           onSelect: (chosenId) => {
             if (chosenId && !cat.entities.includes(chosenId)) {
               cat.entities.push(chosenId);
+              r.overlay_categories = JSON.parse(JSON.stringify(cats));
               this._renderSettingsContent(container, isModal);
             }
           }
@@ -1939,8 +2015,10 @@ export const settingsMethods = {
         const cIdx = parseInt(btn.getAttribute('data-cidx'));
         const eIdx = parseInt(btn.getAttribute('data-eidx'));
         const r = this._config.rooms && this._config.rooms[rIdx];
-        if (r?.overlay_categories?.[cIdx]?.entities) {
-          r.overlay_categories[cIdx].entities.splice(eIdx, 1);
+        const cats = r ? this._ensureRoomControlsCategories(r) : null;
+        if (cats?.[cIdx]?.entities) {
+          cats[cIdx].entities.splice(eIdx, 1);
+          r.overlay_categories = JSON.parse(JSON.stringify(cats));
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -1951,8 +2029,57 @@ export const settingsMethods = {
         const rIdx = this._settingsOverlayRoomIdx || 0;
         const cIdx = parseInt(inp.getAttribute('data-cidx'));
         const r = this._config.rooms && this._config.rooms[rIdx];
-        if (r?.overlay_categories?.[cIdx]) {
-          r.overlay_categories[cIdx].name = inp.value;
+        const cats = r ? this._ensureRoomControlsCategories(r) : null;
+        if (cats?.[cIdx]) {
+          cats[cIdx].name = inp.value;
+          r.overlay_categories = JSON.parse(JSON.stringify(cats));
+        }
+      };
+    });
+
+    // Room Lights Add & Remove
+    container.querySelectorAll('.btn-add-room-light').forEach(btn => {
+      btn.onclick = () => {
+        const rIdx = parseInt(btn.getAttribute('data-ridx'));
+        const r = this._config.rooms && this._config.rooms[rIdx];
+        if (!r) return;
+        if (!r.lights || !Array.isArray(r.lights)) {
+          r.lights = this._ensureRoomLights(r);
+        }
+        this._showEntityPicker({
+          currentValue: '',
+          roomId: r.id,
+          roomName: r.name,
+          defaultDomain: 'light',
+          onSelect: (chosenId) => {
+            if (chosenId && !r.lights.includes(chosenId)) {
+              r.lights.push(chosenId);
+              this._renderSettingsContent(container, isModal);
+            }
+          }
+        });
+      };
+    });
+
+    container.querySelectorAll('.btn-del-room-light').forEach(btn => {
+      btn.onclick = () => {
+        const rIdx = parseInt(btn.getAttribute('data-ridx'));
+        const lIdx = parseInt(btn.getAttribute('data-lidx'));
+        const r = this._config.rooms && this._config.rooms[rIdx];
+        if (r?.lights && Array.isArray(r.lights)) {
+          r.lights.splice(lIdx, 1);
+          this._renderSettingsContent(container, isModal);
+        }
+      };
+    });
+
+    // Eco & Komfort Presets toggle
+    container.querySelectorAll('.chk-enable-eco-comfort').forEach(chk => {
+      chk.onchange = () => {
+        const rIdx = parseInt(chk.getAttribute('data-ridx'));
+        const r = this._config.rooms && this._config.rooms[rIdx];
+        if (r) {
+          r.enable_eco_comfort = chk.checked;
         }
       };
     });
@@ -2131,7 +2258,7 @@ export const settingsMethods = {
       else if (prop === 'tv_entity' || prop === 'video_entity' || prop === 'media_entity') defDomain = 'media_player';
       else if (prop === 'temp_entity' || prop === 'humidity_entity' || prop === 'illuminance_entity') defDomain = 'sensor';
       else if (prop === 'presence_entity' || prop === 'window_entity') defDomain = 'binary_sensor';
-      else if (prop === 'target_temp_entity') defDomain = 'input_number';
+      else if (prop === 'target_temp_entity' || prop === 'comfort_temp_helper' || prop === 'eco_temp_helper') defDomain = 'input_number';
       
       this._showEntityPicker({
         currentValue: curVal,
@@ -2836,21 +2963,27 @@ export const settingsMethods = {
         }
       });
 
-      // Collect overlay category inputs
+      // Collect eco comfort checkboxes
+      container.querySelectorAll('.chk-enable-eco-comfort').forEach(chk => {
+        const rIdx = parseInt(chk.getAttribute('data-ridx'));
+        if (this._config.rooms && this._config.rooms[rIdx]) {
+          this._config.rooms[rIdx].enable_eco_comfort = chk.checked;
+        }
+      });
+
+      // Collect overlay & controls category inputs
       const rIdx = this._settingsOverlayRoomIdx || 0;
-      if (this._config.rooms && this._config.rooms[rIdx]?.overlay_categories) {
+      if (this._config.rooms && this._config.rooms[rIdx]) {
+        const r = this._config.rooms[rIdx];
+        const cats = this._ensureRoomControlsCategories(r);
         container.querySelectorAll('.in-cat-name').forEach(inp => {
           const cIdx = parseInt(inp.getAttribute('data-cidx'));
-          if (this._config.rooms[rIdx].overlay_categories[cIdx]) {
-            this._config.rooms[rIdx].overlay_categories[cIdx].name = inp.value.trim();
+          if (cats[cIdx]) {
+            cats[cIdx].name = inp.value.trim();
           }
         });
-        container.querySelectorAll('.in-cat-ents').forEach(inp => {
-          const cIdx = parseInt(inp.getAttribute('data-cidx'));
-          if (this._config.rooms[rIdx].overlay_categories[cIdx]) {
-            this._config.rooms[rIdx].overlay_categories[cIdx].entities = inp.value.split(',').map(s => s.trim()).filter(Boolean);
-          }
-        });
+        r.controls_categories = cats;
+        r.overlay_categories = JSON.parse(JSON.stringify(cats));
       }
 
       // Collect general inputs

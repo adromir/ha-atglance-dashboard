@@ -1,8 +1,8 @@
 {
-  "name": "ha-vision-glass-dashboard",
-  "version": "3.0.16",
+  "name": "ha-atglance-dashboard",
+  "version": "1.1.0",
   "type": "module",
-  "description": "All-in-one Spatial Glassmorphism Custom Panel & Home Assistant Integration with Python backend storage, dynamic area discovery, Recorder downsampling, and modular ES frontend",
+  "description": "Ultra-modern translucent Glassmorphism smart home dashboard for Home Assistant with interactive modals, day/night auto-switching, and floating dock",
   "scripts": {
     "test": "python -m unittest -v tests/test_python_backend.py && node tests/test_frontend_modules.mjs",
     "release": "node scripts/release.js"
@@ -12,7 +12,7 @@
     "homeassistant",
     "lovelace",
     "dashboard",
-    "visionos",
+    "atglance",
     "glassmorphism",
     "hacs"
   ],
@@ -20,11 +20,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/adromir/ha-vision-glass-dashboard.git"
+    "url": "git+https://github.com/adromir/ha-atglance-dashboard.git"
   },
   "bugs": {
-    "url": "https://github.com/adromir/ha-vision-glass-dashboard/issues"
+    "url": "https://github.com/adromir/ha-atglance-dashboard/issues"
   },
-  "homepage": "https://github.com/adromir/ha-vision-glass-dashboard#readme"
+  "homepage": "https://github.com/adromir/ha-atglance-dashboard#readme"
 }
 

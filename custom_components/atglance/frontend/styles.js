@@ -1444,9 +1444,10 @@ export const ATGLANCE_STYLES = `
           -webkit-backdrop-filter: blur(38px) saturate(210%);
           border: 1px solid var(--border-glass);
           border-radius: 28px;
-          width: 94%;
-          max-width: 940px;
+          width: 95vw;
+          max-width: min(94vw, 840px);
           max-height: calc(100vh - var(--header-height, 56px) - 32px);
+          box-sizing: border-box;
           box-shadow:
             inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.55),
             inset 0 -1.5px 1.5px 0 rgba(0, 0, 0, 0.35),
@@ -1491,6 +1492,13 @@ export const ATGLANCE_STYLES = `
         .modal-title {
           font-size: 20px;
           font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .close-btn {
           background: rgba(255, 255, 255, 0.12);
@@ -1514,12 +1522,151 @@ export const ATGLANCE_STYLES = `
         .modal-body {
           padding: 22px 26px;
           overflow-y: auto;
+          overflow-x: hidden !important;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
           overscroll-behavior: contain;
           -webkit-overflow-scrolling: touch;
           flex: 1;
           display: flex;
           flex-direction: column;
           gap: 16px;
+        }
+
+        /* Compact Dropdown / Popover for Auswahllisten / Badges */
+        .compact-select-container {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          max-width: 100%;
+          vertical-align: middle;
+        }
+        .compact-select-trigger {
+          height: 24px;
+          padding: 2px 8px;
+          border-radius: 9999px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-primary);
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          max-width: 155px;
+          white-space: nowrap;
+          transition: background 0.2s, border-color 0.2s;
+          box-sizing: border-box;
+        }
+        .compact-select-trigger:hover,
+        .compact-select-container.open .compact-select-trigger {
+          background: rgba(255, 255, 255, 0.16);
+          border-color: var(--accent);
+        }
+        .compact-select-value {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 110px;
+        }
+        .compact-select-dropdown {
+          position: absolute;
+          top: calc(100% + 4px);
+          left: 0;
+          min-width: 140px;
+          max-width: 250px;
+          max-height: 220px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          background: var(--bg-modal, rgba(20, 25, 35, 0.96));
+          backdrop-filter: blur(24px) saturate(190%);
+          -webkit-backdrop-filter: blur(24px) saturate(190%);
+          border: 1px solid var(--border-glass);
+          border-radius: 12px;
+          padding: 4px;
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+          z-index: 9999;
+          display: none;
+          flex-direction: column;
+          gap: 2px;
+          box-sizing: border-box;
+        }
+        .compact-select-container:hover .compact-select-dropdown,
+        .compact-select-container.open .compact-select-dropdown {
+          display: flex;
+        }
+        .compact-select-opt {
+          padding: 6px 10px;
+          border-radius: 8px;
+          background: transparent;
+          border: none;
+          color: var(--text-primary);
+          font-size: 12px;
+          text-align: left;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: background 0.15s;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          box-sizing: border-box;
+        }
+        .compact-select-opt:hover {
+          background: rgba(56, 189, 248, 0.18);
+          color: var(--accent);
+        }
+        .compact-select-opt.selected {
+          font-weight: 700;
+          color: var(--accent);
+          background: rgba(56, 189, 248, 0.12);
+        }
+
+        /* Warning Center Cards */
+        .alert-card-critical {
+          background: rgba(239, 68, 68, 0.14);
+          border: 1px solid rgba(239, 68, 68, 0.45);
+          border-radius: 14px;
+          padding: 12px 16px;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          box-sizing: border-box;
+        }
+        .alert-card-warning {
+          background: rgba(245, 158, 11, 0.14);
+          border: 1px solid rgba(245, 158, 11, 0.45);
+          border-radius: 14px;
+          padding: 12px 16px;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          box-sizing: border-box;
+        }
+        .alert-card-notice {
+          background: rgba(56, 189, 248, 0.10);
+          border: 1px solid rgba(56, 189, 248, 0.30);
+          border-radius: 14px;
+          padding: 12px 16px;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          box-sizing: border-box;
+        }
+        .alert-card-ok {
+          background: rgba(16, 185, 129, 0.12);
+          border: 1px solid rgba(16, 185, 129, 0.35);
+          border-radius: 18px;
+          padding: 24px;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          box-sizing: border-box;
         }
 
         .modal-body::-webkit-scrollbar {

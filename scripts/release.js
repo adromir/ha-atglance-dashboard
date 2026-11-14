@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 import https from 'https';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
-const manifestPath = './custom_components/vision_glass/manifest.json';
+const manifestPath = './custom_components/atglance/manifest.json';
 if (!existsSync(manifestPath)) {
   console.error(`Error: ${manifestPath} not found!`);
   process.exit(1);
@@ -38,7 +38,7 @@ try {
   changelog = `Release ${version}`;
 }
 
-const releaseBody = `### Vision Glass Integration ${version}
+const releaseBody = `### AtGlance Dashboard ${version}
 
 #### Changes in this release:
 ${changelog.split('\n').map(l => `- ${l}`).join('\n')}

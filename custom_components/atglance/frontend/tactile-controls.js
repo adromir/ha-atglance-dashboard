@@ -459,32 +459,43 @@ export const tactileMethods = {
 
     if (domain === 'input_select' || domain === 'select') {
       const options = stateObj.attributes?.options || [];
-      if (prefCtrl === 'dropdown') {
+      if (prefCtrl === 'segmented' && options.length <= 4) {
         return `
-          <div class="control-row" style="padding:10px 14px;min-height:48px;">
-            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;margin-right:10px;">
+          <div class="control-row" style="padding:10px 14px;min-height:48px;display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;align-items:center;gap:8px;width:100%;">
               <div style="flex-shrink:0;">${icon}</div>
               <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${name}</div>
               ${battWarningHtml}
             </div>
-            <select class="vg-glass-select" data-select-entity="${entityId}" style="background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">
-              ${options.map(opt => `<option value="${opt}" ${opt === val ? 'selected' : ''}>${opt}</option>`).join('')}
-            </select>
+            <div class="vg-seg-group">
+              ${options.map(opt => `
+                <button type="button" class="vg-seg-pill ${opt === val ? 'active' : ''}" data-seg-entity="${entityId}" data-seg-option="${opt}">${opt}</button>
+              `).join('')}
+            </div>
           </div>
         `;
       }
 
       return `
-        <div class="control-row" style="padding:10px 14px;min-height:48px;display:flex;flex-direction:column;gap:6px;">
-          <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <div class="control-row" style="padding:10px 14px;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
             <div style="flex-shrink:0;">${icon}</div>
-            <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${name}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
             ${battWarningHtml}
           </div>
-          <div class="vg-seg-group">
-            ${options.map(opt => `
-              <button type="button" class="vg-seg-pill ${opt === val ? 'active' : ''}" data-seg-entity="${entityId}" data-seg-option="${opt}">${opt}</button>
-            `).join('')}
+          <div class="compact-select-container" data-entity="${entityId}">
+            <button class="compact-select-trigger" type="button" title="${name}: ${val}">
+              <span class="compact-select-value">${val}</span>
+              <ha-icon icon="mdi:chevron-down" style="--mdc-icon-size:14px;opacity:0.7;"></ha-icon>
+            </button>
+            <div class="compact-select-dropdown">
+              ${options.map(opt => `
+                <button type="button" class="compact-select-opt ${opt === val ? 'selected' : ''}" data-select-entity="${entityId}" data-select-option="${opt}">
+                  ${opt === val ? '<ha-icon icon="mdi:check" style="--mdc-icon-size:13px;color:var(--accent);"></ha-icon>' : ''}
+                  <span>${opt}</span>
+                </button>
+              `).join('')}
+            </div>
           </div>
         </div>
       `;
@@ -669,6 +680,29 @@ export const tactileMethods = {
         e.stopPropagation();
         const eId = sel.getAttribute('data-select-entity');
         this._callService(eId.split('.')[0], 'select_option', { entity_id: eId, option: sel.value });
+      };
+    });
+    rootEl.querySelectorAll('.compact-select-opt[data-select-entity]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const eId = btn.getAttribute('data-select-entity');
+        const opt = btn.getAttribute('data-select-option');
+        const container = btn.closest('.compact-select-container');
+        if (container) {
+          const valEl = container.querySelector('.compact-select-value');
+          if (valEl) valEl.textContent = opt;
+          container.querySelectorAll('.compact-select-opt').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          container.classList.remove('open');
+        }
+        this._callService(eId.split('.')[0], 'select_option', { entity_id: eId, option: opt });
+      };
+    });
+    rootEl.querySelectorAll('.compact-select-trigger').forEach(trig => {
+      trig.onclick = (e) => {
+        e.stopPropagation();
+        const cont = trig.closest('.compact-select-container');
+        if (cont) cont.classList.toggle('open');
       };
     });
     rootEl.querySelectorAll('.vg-time-input[data-time-entity]').forEach(ti => {

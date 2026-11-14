@@ -34,8 +34,66 @@ export const modalMethods = {
       return { id: pId, name, defaultPic, batteryEntity: batKey };
     });
 
+    if (this._showPresenceMap === undefined) {
+      this._showPresenceMap = true;
+    }
+
+    const homeLat = Number(this._hass?.config?.latitude ?? 52.3889);
+    const homeLon = Number(this._hass?.config?.longitude ?? 9.8297);
+    const lats = [homeLat];
+    const lons = [homeLon];
+    persons.forEach(p => {
+      const stateObj = this._hass.states[p.id];
+      const lat = stateObj?.attributes?.latitude;
+      const lon = stateObj?.attributes?.longitude;
+      if (lat != null && lon != null && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon))) {
+        lats.push(parseFloat(lat));
+        lons.push(parseFloat(lon));
+      }
+    });
+
+    const minLat = (Math.min(...lats) - 0.015).toFixed(4);
+    const maxLat = (Math.max(...lats) + 0.015).toFixed(4);
+    const minLon = (Math.min(...lons) - 0.02).toFixed(4);
+    const maxLon = (Math.max(...lons) + 0.02).toFixed(4);
+    const centerLat = ((Math.min(...lats) + Math.max(...lats)) / 2).toFixed(4);
+    const centerLon = ((Math.min(...lons) + Math.max(...lons)) / 2).toFixed(4);
+
+    const mapHtml = this._showPresenceMap ? `
+      <div style="position:relative;width:100%;height:220px;border-radius:18px;overflow:hidden;border:1px solid var(--border-glass);box-shadow:0 8px 24px rgba(0,0,0,0.25);background:rgba(0,0,0,0.25);margin-bottom:8px;">
+        <iframe
+          src="https://www.openstreetmap.org/export/embed.html?bbox=${minLon},${minLat},${maxLon},${maxLat}&layer=mapnik&marker=${centerLat},${centerLon}"
+          width="100%"
+          height="100%"
+          frameborder="0"
+          style="border:none;"
+          loading="lazy"
+          title="Personen-Standorte">
+        </iframe>
+        <div style="position:absolute;bottom:8px;left:8px;right:8px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none;">
+          ${persons.map(p => {
+            const st = this._hass.states[p.id];
+            const isHome = st && st.state === 'home';
+            return `
+              <div style="pointer-events:auto;background:rgba(15,23,42,0.88);backdrop-filter:blur(10px);border:1px solid var(--border-glass);border-radius:20px;padding:3px 10px;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#fff;">
+                <span class="chip-dot ${isHome ? 'dot-green' : 'dot-amber'}"></span>
+                <span>${p.name}: <strong>${isHome ? this._t('home') : (st?.state || this._t('away'))}</strong></span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : '';
+
     body.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">${this._t('residents')}</span>
+          <button class="btn-micro ${this._showPresenceMap ? 'active' : ''}" id="btnTogglePresenceMap" style="padding:4px 10px;font-size:12px;">
+            ${this._icon('map-pin', { size: 14, style: 'margin-right:4px;' })} ${this._t('presence_map')}
+          </button>
+        </div>
+        ${mapHtml}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;">
           ${persons.map(p => {
             const stateObj = this._hass.states[p.id];
@@ -83,6 +141,14 @@ export const modalMethods = {
         </div>
       </div>
     `;
+
+    const btnToggleMap = body.querySelector('#btnTogglePresenceMap');
+    if (btnToggleMap) {
+      btnToggleMap.onclick = () => {
+        this._showPresenceMap = !this._showPresenceMap;
+        this._renderPersonModal(targetEntityId);
+      };
+    }
 
     body.querySelectorAll('.btn-moreinfo').forEach(btn => {
       btn.onclick = () => {
@@ -998,12 +1064,13 @@ export const modalMethods = {
     return this._getWeatherIcon(state, 24);
   },
 
-  _openModal(type) {
+  _openModal(type, context = null) {
     if (type === 'settings') {
       this._setViewMode('settings');
       return;
     }
     this._activeModal = type;
+    this._activeModalContext = context;
     const modalEl = this.shadowRoot.getElementById('modalContainer');
     if (modalEl) {
       modalEl.classList.remove('hidden');
@@ -1012,6 +1079,14 @@ export const modalMethods = {
       }
       this._renderModalContent(type);
     }
+  },
+
+  _getModalAreaSuffix() {
+    const r = this._activeModalContext;
+    if (r && (r.name || r.id)) {
+      return ` – ${r.name || r.id}`;
+    }
+    return ` – ${this._t('overview_apartment') || 'Gesamte Wohnung'}`;
   },
 
   _closeModal() {
@@ -1031,58 +1106,146 @@ export const modalMethods = {
     if (!body || (!customContainer && !title) || !this._hass) return;
 
     if (type === 'lighting') {
-      title.innerHTML = `${this._icon('light', { size: 22, cls: 'icon-light', style: 'margin-right:8px;' })} ${this._t('lighting_control')}`;
+      const room = this._activeModalContext;
+      title.innerHTML = `${this._icon('light', { size: 22, cls: 'icon-light', style: 'margin-right:8px;' })} ${this._t('lighting_control')}${this._getModalAreaSuffix()}`;
+
+      const rooms = this._config.rooms || [];
+      const selectedRoomId = room?.id || this._selectedLightingRoomId || '_all';
+      this._selectedLightingRoomId = selectedRoomId;
+
+      // Deduplicate lights strictly
       const seenLights = new Set();
       const allLights = [];
-      const allLightsEntity = this._config.all_lights_entity || Object.keys(this._hass.states).find(e => e.startsWith('light.') && (e.includes('alle') || e.includes('all') || e.includes('wohnung') || e.includes('home')));
-      if (allLightsEntity && this._hass.states[allLightsEntity]) {
+
+      const allLightsEntity = (this._config.all_lights_entity || 'light.licht_wohnung').toLowerCase();
+      if (this._config.all_lights_entity && this._hass.states[this._config.all_lights_entity]) {
         seenLights.add(allLightsEntity);
-        allLights.push({ id: allLightsEntity, name: this._hass.states[allLightsEntity].attributes?.friendly_name || this._t('all_lights_apartment') });
+        allLights.push({
+          id: this._config.all_lights_entity,
+          name: this._hass.states[this._config.all_lights_entity].attributes?.friendly_name || this._t('all_lights_apartment'),
+          isAll: true
+        });
       }
-      (this._config.rooms || []).forEach(r => {
-        if (r.light_entity && !seenLights.has(r.light_entity) && this._hass.states[r.light_entity]) {
-          seenLights.add(r.light_entity);
-          allLights.push({ id: r.light_entity, name: `${r.name || r.id} ${this._t('lighting')}` });
+
+      // Group lights by room
+      const roomLightGroups = [];
+      rooms.forEach(r => {
+        const rLights = this._ensureRoomLights(r) || [];
+        const groupLights = [];
+        rLights.forEach(lId => {
+          const norm = lId.trim().toLowerCase();
+          if (norm === allLightsEntity || seenLights.has(norm)) return;
+          if (this._hass.states[lId]) {
+            seenLights.add(norm);
+            groupLights.push({
+              id: lId,
+              name: this._hass.states[lId].attributes?.friendly_name || lId,
+              roomId: r.id
+            });
+            allLights.push({
+              id: lId,
+              name: this._hass.states[lId].attributes?.friendly_name || lId,
+              roomId: r.id
+            });
+          }
+        });
+        if (groupLights.length > 0) {
+          roomLightGroups.push({ room: r, lights: groupLights });
         }
       });
-      Object.keys(this._hass.states).filter(e => e.startsWith('light.') && !seenLights.has(e)).slice(0, 20).forEach(eId => {
-        seenLights.add(eId);
-        allLights.push({ id: eId, name: this._hass.states[eId].attributes?.friendly_name || eId });
-      });
+
+      // Pick displayed lights based on selected room filter
+      const activeFilter = selectedRoomId;
+      const displayedGroups = activeFilter === '_all'
+        ? roomLightGroups
+        : roomLightGroups.filter(g => g.room.id === activeFilter);
 
       body.innerHTML = `
-        <div style="display:flex;gap:12px;margin-bottom:18px;">
-          <button class="btn-micro" id="modalAllOn">${this._t('all_lights_turn_on')}</button>
-          <button class="btn-micro" id="modalAllOff">${this._t('all_lights_turn_off')}</button>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">
-          ${allLights.map(l => {
-            const s = this._hass.states[l.id];
-            const isOn = s && s.state === 'on';
-            const bri = s && s.attributes.brightness ? Math.round((s.attributes.brightness / 255) * 100) : 100;
-            return `
-              <div class="control-row" style="padding:10px 14px;min-height:50px;">
-                <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;margin-right:12px;">
-                  <div style="flex-shrink:0;">${this._icon('light', { size: 16, cls: 'icon-light' })}</div>
-                  <div style="flex:1;min-width:0;">
-                    <div style="font-weight:600;font-size:14px;line-height:1.25;word-break:break-word;white-space:normal;color:var(--text-primary);">${l.name}</div>
-                    <div style="font-size:12px;color:var(--text-secondary);">${isOn ? `${this._t('on')} (${bri}%)` : this._t('off')}</div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <!-- Top Bar: Lamp Icons on Action Buttons -->
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <button class="btn-micro" id="modalAllOn" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-weight:600;">
+              ${this._icon('mdi:lightbulb-on', { size: 16, cls: 'icon-light' })}
+              <span>${this._t('all_lights_turn_on')}</span>
+            </button>
+            <button class="btn-micro" id="modalAllOff" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-weight:600;">
+              ${this._icon('mdi:lightbulb-off', { size: 16 })}
+              <span>${this._t('all_lights_turn_off')}</span>
+            </button>
+          </div>
+
+          <!-- Room Filter Pills -->
+          <div class="vg-seg-group" style="display:inline-flex;gap:4px;flex-wrap:wrap;background:rgba(255,255,255,0.04);padding:4px;border-radius:10px;border:1px solid var(--border-subtle);max-width:100%;">
+            <button type="button" class="vg-seg-pill ${activeFilter === '_all' ? 'active' : ''}" data-light-filter="_all" style="padding:5px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;">
+              ${this._t('all_rooms') || 'Alle Räume'}
+            </button>
+            ${rooms.map(r => `
+              <button type="button" class="vg-seg-pill ${activeFilter === r.id ? 'active' : ''}" data-light-filter="${r.id}" style="padding:5px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;">
+                ${r.name || r.id}
+              </button>
+            `).join('')}
+          </div>
+
+          <!-- Light Cards -->
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            ${displayedGroups.length === 0 ? `
+              <div style="text-align:center;padding:24px;color:var(--text-secondary);font-size:13px;">Keine Leuchten in diesem Bereich gefunden.</div>
+            ` : displayedGroups.map(g => `
+              <div style="background:var(--bg-card);border:1px solid var(--border-glass);border-radius:14px;padding:14px 16px;">
+                <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <ha-icon icon="mdi:lightbulb" style="--mdc-icon-size:16px;color:var(--accent);"></ha-icon>
+                    <span>${g.room.name || g.room.id}</span>
                   </div>
+                  <span style="font-size:11px;font-weight:600;color:var(--text-secondary);background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:10px;">${g.lights.length}</span>
                 </div>
-                <button class="toggle-pill ${isOn ? 'active' : ''}" style="flex-shrink:0;" data-light="${l.id}">
-                  ${isOn ? this._t('on') : this._t('off')}
-                </button>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px, 100%),1fr));gap:10px;">
+                  ${g.lights.map(l => {
+                    const s = this._hass.states[l.id];
+                    const isOn = s && s.state === 'on';
+                    const bri = s && s.attributes.brightness ? Math.round((s.attributes.brightness / 255) * 100) : 100;
+                    return `
+                      <div class="control-row" style="padding:10px 14px;min-height:48px;">
+                        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;margin-right:10px;">
+                          <div style="flex-shrink:0;">${this._icon('light', { size: 16, cls: isOn ? 'icon-light active' : 'icon-light' })}</div>
+                          <div style="flex:1;min-width:0;">
+                            <div style="font-weight:600;font-size:13px;line-height:1.25;word-break:break-word;white-space:normal;color:var(--text-primary);">${l.name}</div>
+                            <div style="font-size:11px;color:var(--text-secondary);">${isOn ? `${this._t('on')} (${bri}%)` : this._t('off')}</div>
+                          </div>
+                        </div>
+                        <button class="toggle-pill ${isOn ? 'active' : ''}" style="flex-shrink:0;" data-light="${l.id}">
+                          ${isOn ? this._t('on') : this._t('off')}
+                        </button>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
               </div>
-            `;
-          }).join('')}
+            `).join('')}
+          </div>
         </div>
       `;
 
+      body.querySelectorAll('[data-light-filter]').forEach(b => {
+        b.onclick = () => {
+          const fid = b.getAttribute('data-light-filter');
+          this._selectedLightingRoomId = fid;
+          this._activeModalContext = fid === '_all' ? null : rooms.find(r => r.id === fid);
+          this._renderModalContent('lighting');
+        };
+      });
+
       body.querySelector('#modalAllOn').onclick = () => {
-        const tgt = this._config.all_lights_entity || allLights.map(l => l.id); this._callService('light', 'turn_on', { entity_id: tgt });
+        const tgt = activeFilter === '_all'
+          ? (this._config.all_lights_entity || allLights.map(l => l.id))
+          : (displayedGroups[0]?.lights.map(l => l.id) || []);
+        if (tgt && tgt.length > 0) this._callService('light', 'turn_on', { entity_id: tgt });
       };
       body.querySelector('#modalAllOff').onclick = () => {
-        const tgt = this._config.all_lights_entity || allLights.map(l => l.id); this._callService('light', 'turn_off', { entity_id: tgt });
+        const tgt = activeFilter === '_all'
+          ? (this._config.all_lights_entity || allLights.map(l => l.id))
+          : (displayedGroups[0]?.lights.map(l => l.id) || []);
+        if (tgt && tgt.length > 0) this._callService('light', 'turn_off', { entity_id: tgt });
       };
       body.querySelectorAll('.toggle-pill[data-light]').forEach(btn => {
         btn.onclick = () => {
@@ -1091,7 +1254,7 @@ export const modalMethods = {
         };
       });
     } else if (type === 'climate') {
-      title.innerHTML = `${this._icon('climate', { size: 22, cls: 'icon-climate', style: 'margin-right:8px;' })} ${this._t('climate_control')}`;
+      title.innerHTML = `${this._icon('climate', { size: 22, cls: 'icon-climate', style: 'margin-right:8px;' })} ${this._t('climate_control')}${this._getModalAreaSuffix()}`;
       const thermostats = [];
       const seenClimates = new Set();
       (this._config.rooms || []).forEach(r => {
@@ -1130,7 +1293,7 @@ export const modalMethods = {
       }
 
       body.innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(310px, 100%),1fr));gap:14px;">
           ${thermostats.map((t, idx) => {
             const s = this._hass.states[t.id];
             const cur = s && s.attributes.current_temperature ? s.attributes.current_temperature : (this._hass.states[t.tempSensor] ? this._hass.states[t.tempSensor].state : '--');
@@ -1141,19 +1304,23 @@ export const modalMethods = {
             const historyVals = this._tempHistory[t.tempSensor];
             const curve = this._statsChartsMod ? this._statsChartsMod.generateSvgCurve(historyVals, cur, 290, 55) : this._fallbackSvgCurve(cur);
 
-            const komfortHelperId = t.targetHelper || null;
-            const ecoHelperId = null;
-            const komfortObj = this._hass.states[komfortHelperId];
-            const ecoObj = this._hass.states[ecoHelperId];
+            const r = (this._config.rooms || []).find(rm => rm.climate_entity === t.id || rm.name === t.roomName || rm.id === t.id);
+            const helperRoomKey = r ? (r.id.toLowerCase() === 'badezimmer' ? 'bad' : r.id.toLowerCase()) : '';
+            const komfortHelperId = (r && r.comfort_temp_helper) || t.targetHelper || (helperRoomKey && Object.keys(this._hass.states).find(e => e.startsWith('input_number.') && e.includes(helperRoomKey) && (e.includes('komfort') || e.includes('comfort')))) || null;
+            const ecoHelperId = (r && r.eco_temp_helper) || (helperRoomKey && Object.keys(this._hass.states).find(e => e.startsWith('input_number.') && e.includes(helperRoomKey) && e.includes('eco'))) || null;
+            const enableHelpers = (r && r.enable_eco_comfort !== undefined) ? r.enable_eco_comfort : Boolean(komfortHelperId || ecoHelperId);
+            const komfortObj = komfortHelperId ? this._hass.states[komfortHelperId] : null;
+            const ecoObj = ecoHelperId ? this._hass.states[ecoHelperId] : null;
             const komfortVal = komfortObj && komfortObj.state != null && !isNaN(parseFloat(komfortObj.state)) ? parseFloat(komfortObj.state).toFixed(1) : '--';
             const ecoVal = ecoObj && ecoObj.state != null && !isNaN(parseFloat(ecoObj.state)) ? parseFloat(ecoObj.state).toFixed(1) : '--';
+            const curPreset = s?.attributes?.preset_mode || 'none';
 
             return `
               <div class="control-row" style="flex-direction:column;align-items:stretch;gap:10px;padding:16px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                   <div>
                     <span style="font-weight:700;font-size:16px;">${roomName}</span>
-                    <div style="font-size:12px;color:var(--text-secondary);">Better Thermostat</div>
+                    <div style="font-size:12px;color:var(--text-secondary);">${s?.attributes?.friendly_name || 'Thermostat'}</div>
                   </div>
                   <div style="text-align:right;">
                     <span style="font-size:18px;font-weight:700;color:var(--text-primary);">${cur}°C</span>
@@ -1180,38 +1347,55 @@ export const modalMethods = {
                 </div>
 
                 <!-- Steppers & Mode -->
-                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-subtle);padding-top:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-subtle);padding-top:10px;flex-wrap:wrap;gap:8px;">
                   <span style="font-size:13px;">${this._t('target')}: <strong style="font-size:16px;color:var(--accent);">${target}°C</strong></span>
-                  <div style="display:flex;gap:8px;">
+                  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                     <button class="btn-step" data-climate="${t.id}" data-delta="-0.5">-</button>
                     <button class="btn-step" data-climate="${t.id}" data-delta="0.5">+</button>
-                    <button class="btn-micro ${isHeat ? 'active' : ''}" data-toggle-heat="${t.id}">
-                      ${isHeat ? this._t('heat') : this._t('off')}
+                    <button class="btn-micro ${s?.state === 'off' ? 'active-amber' : ''}" data-climate-mode="${t.id}" data-mode="off">
+                      ${this._t('off')}
                     </button>
+                    <button class="btn-micro ${s?.state === 'heat' && (curPreset === 'none' || curPreset === 'comfort') ? 'active-green' : ''}" data-climate-mode="${t.id}" data-mode="heat">
+                      ${this._t('heat')}
+                    </button>
+                    ${enableHelpers ? `
+                      <button class="btn-micro ${curPreset === 'eco' ? 'active' : ''}" data-climate-preset="${t.id}" data-preset="eco" data-helper="${ecoHelperId || ''}" title="Eco">
+                        ${this._icon('snowflake', { size: 12, cls: 'icon-climate', style: 'margin-right:2px;' })} Eco
+                      </button>
+                      <button class="btn-micro ${curPreset === 'comfort' ? 'active-amber' : ''}" data-climate-preset="${t.id}" data-preset="comfort" data-helper="${komfortHelperId || ''}" title="Komfort">
+                        ${this._icon('sun', { size: 12, cls: 'icon-light', style: 'margin-right:2px;' })} ${this._t('comfort_preset') || 'Komfort'}
+                      </button>
+                    ` : ''}
                   </div>
                 </div>
 
                 <!-- Individual Room Helpers: Komfort & Eco -->
-                <div style="display:flex;flex-direction:column;gap:6px;border-top:1px dashed var(--border-subtle);padding-top:8px;margin-top:4px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.22);border-radius:10px;padding:5px 10px;">
-                    <span style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;color:var(--text-primary);">
-                      ${this._icon('sun', { size: 13, cls: 'icon-light' })} ${this._t('comfort')}: <strong style="color:#f59e0b;margin-left:2px;">${komfortVal}°C</strong>
-                    </span>
-                    <div style="display:flex;gap:4px;">
-                      <button class="btn-step" data-helper="${komfortHelperId}" data-delta="-0.5" style="width:24px;height:24px;font-size:12px;padding:0;line-height:22px;">-</button>
-                      <button class="btn-step" data-helper="${komfortHelperId}" data-delta="0.5" style="width:24px;height:24px;font-size:12px;padding:0;line-height:22px;">+</button>
-                    </div>
+                ${enableHelpers ? `
+                  <div style="display:flex;flex-direction:column;gap:6px;border-top:1px dashed var(--border-subtle);padding-top:8px;margin-top:4px;">
+                    ${komfortHelperId ? `
+                      <div class="helper-row" style="display:flex;justify-content:space-between;align-items:center;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.22);border-radius:10px;padding:5px 10px;">
+                        <span style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;color:var(--text-primary);">
+                          ${this._icon('sun', { size: 13, cls: 'icon-light' })} ${this._t('comfort')}: <strong class="helper-val-display" style="color:#f59e0b;margin-left:2px;">${komfortVal}°C</strong>
+                        </span>
+                        <div style="display:flex;gap:4px;">
+                          <button class="btn-step" data-helper="${komfortHelperId}" data-delta="-0.5" style="width:24px;height:24px;font-size:12px;padding:0;line-height:22px;">-</button>
+                          <button class="btn-step" data-helper="${komfortHelperId}" data-delta="0.5" style="width:24px;height:24px;font-size:12px;padding:0;line-height:22px;">+</button>
+                        </div>
+                      </div>
+                    ` : ''}
+                    ${ecoHelperId ? `
+                      <div class="helper-row" style="display:flex;justify-content:space-between;align-items:center;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.22);border-radius:10px;padding:5px 10px;">
+                        <span style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;color:var(--text-primary);">
+                          ${this._icon('snowflake', { size: 13, cls: 'icon-climate' })} Eco: <strong class="helper-val-display" style="color:#38bdf8;margin-left:2px;">${ecoVal}°C</strong>
+                        </span>
+                        <div style="display:flex;gap:4px;">
+                          <button class="btn-step" data-helper="${ecoHelperId}" data-delta="-0.5" style="width:24px;height:24px;font-size:12px;padding:0;line-height:22px;">-</button>
+                          <button class="btn-step" data-helper="${ecoHelperId}" data-delta="0.5" style="width:24px;height:24px;font-size:12px;padding:0;line-height:22px;">+</button>
+                        </div>
+                      </div>
+                    ` : ''}
                   </div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.22);border-radius:10px;padding:5px 10px;">
-                    <span style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;color:var(--text-primary);">
-                      ${this._icon('snowflake', { size: 13, cls: 'icon-climate' })} Eco: <strong style="color:#38bdf8;margin-left:2px;">${ecoVal}°C</strong>
-                    </span>
-                    <div style="display:flex;gap:4px;">
-                      <button class="btn-step" data-helper="${ecoHelperId}" data-delta="-0.5" style="width:24px;height:24px;font-size:12px;padding:0;line-height:22px;">-</button>
-                      <button class="btn-step" data-helper="${ecoHelperId}" data-delta="0.5" style="width:24px;height:24px;font-size:12px;padding:0;line-height:22px;">+</button>
-                    </div>
-                  </div>
-                </div>
+                ` : ''}
               </div>
             `;
           }).join('')}
@@ -1231,32 +1415,54 @@ export const modalMethods = {
         };
       });
 
+      body.querySelectorAll('[data-climate-mode]').forEach(btn => {
+        btn.onclick = () => {
+          const cId = btn.getAttribute('data-climate-mode');
+          const mode = btn.getAttribute('data-mode');
+          this._callService('climate', 'set_hvac_mode', { entity_id: cId, hvac_mode: mode });
+        };
+      });
+
+      body.querySelectorAll('[data-climate-preset]').forEach(btn => {
+        btn.onclick = () => {
+          const cId = btn.getAttribute('data-climate-preset');
+          const preset = btn.getAttribute('data-preset');
+          const hId = btn.getAttribute('data-helper');
+          const s = this._hass.states[cId];
+          const presets = s?.attributes?.preset_modes || [];
+          if (presets.includes(preset)) {
+            this._callService('climate', 'set_preset_mode', { entity_id: cId, preset_mode: preset });
+          }
+          if (hId && this._hass.states[hId]) {
+            const targetVal = parseFloat(this._hass.states[hId].state);
+            if (!isNaN(targetVal)) {
+              this._callService('climate', 'set_temperature', { entity_id: cId, temperature: targetVal });
+            }
+          }
+          if (s && s.state === 'off') {
+            this._callService('climate', 'set_hvac_mode', { entity_id: cId, hvac_mode: 'heat' });
+          }
+        };
+      });
+
       body.querySelectorAll('.btn-step[data-helper]').forEach(btn => {
         btn.onclick = (e) => {
           e.stopPropagation();
           const hId = btn.getAttribute('data-helper');
+          if (!hId) return;
           const delta = parseFloat(btn.getAttribute('data-delta'));
           const s = this._hass.states[hId];
           if (s && s.state != null) {
             const curVal = parseFloat(s.state) || 20.0;
             const newVal = Math.round((curVal + delta) * 2) / 2;
             this._callService('input_number', 'set_value', { entity_id: hId, value: newVal });
-          }
-        };
-      });
-
-      body.querySelectorAll('[data-toggle-heat]').forEach(btn => {
-        btn.onclick = () => {
-          const cId = btn.getAttribute('data-toggle-heat');
-          const s = this._hass.states[cId];
-          if (s) {
-            const newMode = s.state === 'heat' ? 'off' : 'heat';
-            this._callService('climate', 'set_hvac_mode', { entity_id: cId, hvac_mode: newMode });
+            const valDisplay = btn.closest('.helper-row')?.querySelector('.helper-val-display');
+            if (valDisplay) valDisplay.textContent = `${newVal.toFixed(1)}°C`;
           }
         };
       });
     } else if (type === 'security') {
-      title.innerHTML = `${this._icon('lock-closed', { size: 22, cls: 'icon-security', style: 'margin-right:8px;' })} ${this._t('security')}`;
+      title.innerHTML = `${this._icon('lock-closed', { size: 22, cls: 'icon-security', style: 'margin-right:8px;' })} ${this._t('security')}${this._getModalAreaSuffix()}`;
       const lockEntity = this._config.lock_entity || Object.keys(this._hass.states).find(e => e.startsWith('lock.'));
       const lockObj = lockEntity ? this._hass.states[lockEntity] : null;
       const allDoorContacts = Object.keys(this._hass.states).filter(e => {
@@ -1351,7 +1557,7 @@ export const modalMethods = {
         if (lockEntity) this._callService('lock', 'unlock', { entity_id: lockEntity });
       };
     } else if (type === 'alarmo') {
-      title.innerHTML = `${this._icon('shield', { size: 22, cls: 'icon-alarmo', style: 'margin-right:8px;' })} ${this._t('alarmo')}`;
+      title.innerHTML = `${this._icon('shield', { size: 22, cls: 'icon-alarmo', style: 'margin-right:8px;' })} ${this._t('alarmo')}${this._getModalAreaSuffix()}`;
       const alarmo = (this._getAlarmEntity() ? this._hass.states[this._getAlarmEntity()] : null);
       const st = alarmo ? alarmo.state : 'disarmed';
 
@@ -1450,7 +1656,7 @@ export const modalMethods = {
         };
       });
     } else if (type === 'battery') {
-      title.innerHTML = `${this._icon('battery-full', { size: 22, cls: 'icon-battery', style: 'margin-right:8px;' })} ${this._t('battery_status_maintenance')}`;
+      title.innerHTML = `${this._icon('battery-full', { size: 22, cls: 'icon-battery', style: 'margin-right:8px;' })} ${this._t('battery_status_maintenance')}${this._getModalAreaSuffix()}`;
 
       let batteryDevices = [];
       const seenDevices = new Set();
@@ -1560,7 +1766,7 @@ export const modalMethods = {
       body.querySelector('#filterGood').onclick = () => { this._batteryFilter = 'good'; this._renderModalContent('battery'); };
 
     } else if (type === 'switches') {
-      title.innerHTML = `${this._icon('plug', { size: 22, cls: 'icon-switch', style: 'margin-right:8px;' })} ${this._t('switches_control')}`;
+      title.innerHTML = `${this._icon('plug', { size: 22, cls: 'icon-switch', style: 'margin-right:8px;' })} ${this._t('switches_control')}${this._getModalAreaSuffix()}`;
       const seenSw = new Set();
       const switches = [];
       (this._config.rooms || []).forEach(r => {
@@ -1587,140 +1793,119 @@ export const modalMethods = {
 
       this._bindInteractiveRows(body);
     } else if (type === 'devices_helpers') {
-      title.innerHTML = `${this._icon('mdi:tune-vertical', { size: 22, style: 'color:var(--accent);margin-right:8px;' })} ${this._t('devices_helpers_title') || 'Geräte & Helfer (Schaltzentrale)'}`;
+      title.innerHTML = `${this._icon('mdi:tune-vertical', { size: 22, style: 'color:var(--accent);margin-right:8px;' })} ${this._t('devices_helpers_title') || 'Schalterzentrale'}${this._getModalAreaSuffix()}`;
 
-      const targetDomains = [
-        'switch', 'light', 'input_boolean', 'input_button', 'button',
-        'input_select', 'select', 'input_number', 'number',
-        'fan', 'cover', 'lock', 'input_datetime', 'script', 'scene'
-      ];
+      const rooms = this._config.rooms || [];
+      const selectedRoomId = this._activeModalContext?.id || this._selectedDevicesRoomId || '_all';
+      this._selectedDevicesRoomId = selectedRoomId;
 
-      const domainMeta = {
-        light: { label: 'Licht & Beleuchtung', icon: 'mdi:lightbulb' },
-        switch: { label: 'Schalter & Steckdosen', icon: 'mdi:power-socket-eu' },
-        input_boolean: { label: 'Helfer: Schalter (Boolean)', icon: 'mdi:toggle-switch' },
-        input_button: { label: 'Helfer: Taster (Button)', icon: 'mdi:gesture-tap-button' },
-        button: { label: 'Taster & Aktionen', icon: 'mdi:gesture-tap-button' },
-        input_select: { label: 'Helfer: Auswahllisten (Select)', icon: 'mdi:format-list-bulleted' },
-        select: { label: 'Auswahllisten (Select)', icon: 'mdi:format-list-bulleted' },
-        input_number: { label: 'Helfer: Zahlen & Schieberegler', icon: 'mdi:ray-vertex' },
-        number: { label: 'Zahlen & Schieberegler', icon: 'mdi:ray-vertex' },
-        fan: { label: 'Ventilatoren & Lüfter', icon: 'mdi:fan' },
-        cover: { label: 'Rollos & Jalousien', icon: 'mdi:window-shutter' },
-        lock: { label: 'Schlösser & Riegel', icon: 'mdi:lock' },
-        input_datetime: { label: 'Helfer: Zeit & Datum', icon: 'mdi:clock-outline' },
-        script: { label: 'Skripte', icon: 'mdi:script-text-outline' },
-        scene: { label: 'Szenen', icon: 'mdi:palette-outline' }
-      };
-
-      const groupMode = this._devicesModalGroupMode || 'area';
       const searchQ = (this._devicesSearchQuery || '').toLowerCase().trim();
 
-      // Collect all matching entities from hass.states
-      const allEnts = Object.keys(this._hass.states).filter(eId => {
-        const domain = eId.split('.')[0];
-        if (!targetDomains.includes(domain)) return false;
-        if (eId.includes('update.') || eId.includes('device_tracker.')) return false;
-        if (searchQ) {
-          const s = this._hass.states[eId];
-          const fname = (s?.attributes?.friendly_name || '').toLowerCase();
-          if (!eId.toLowerCase().includes(searchQ) && !fname.includes(searchQ)) {
-            return false;
+      // Room filter pills
+      const filterPillsHtml = `
+        <div class="room-filter-pills" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;scrollbar-width:none;">
+          <button class="room-filter-pill ${selectedRoomId === '_all' ? 'active' : ''}" data-room-id="_all" style="padding:6px 14px;border-radius:20px;border:1px solid ${selectedRoomId === '_all' ? 'var(--accent)' : 'var(--border-subtle)'};background:${selectedRoomId === '_all' ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.04)'};color:${selectedRoomId === '_all' ? 'var(--accent)' : 'var(--text-primary)'};font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;">
+            <ha-icon icon="mdi:home-variant-outline" style="--mdc-icon-size:14px;"></ha-icon>
+            <span>${this._t('all_rooms') || 'Alle Räume'}</span>
+          </button>
+          ${rooms.map(r => {
+            const isSel = selectedRoomId === r.id;
+            return `
+              <button class="room-filter-pill ${isSel ? 'active' : ''}" data-room-id="${r.id}" style="padding:6px 14px;border-radius:20px;border:1px solid ${isSel ? 'var(--accent)' : 'var(--border-subtle)'};background:${isSel ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.04)'};color:${isSel ? 'var(--accent)' : 'var(--text-primary)'};font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;">
+                <ha-icon icon="mdi:door-open" style="--mdc-icon-size:14px;"></ha-icon>
+                <span>${r.name || r.id}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      // Helper to render category block
+      const renderCategoryBlock = (cat) => {
+        const ents = (cat.entities || []).filter(eId => {
+          if (!this._hass.states[eId]) return false;
+          if (searchQ) {
+            const s = this._hass.states[eId];
+            const fname = (s?.attributes?.friendly_name || '').toLowerCase();
+            return eId.toLowerCase().includes(searchQ) || fname.includes(searchQ);
           }
-        }
-        return true;
-      });
+          return true;
+        });
+
+        if (ents.length === 0) return '';
+
+        return `
+          <div style="background:var(--bg-card);border:1px solid var(--border-glass);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <ha-icon icon="${cat.icon || 'mdi:tune-vertical'}" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
+                <span>${cat.name}</span>
+              </div>
+              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:10px;">${ents.length}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
+              ${ents.map(eId => this._renderGenericEntityRow(eId, this._hass.states[eId])).join('')}
+            </div>
+          </div>
+        `;
+      };
 
       let contentHtml = '';
 
-      if (allEnts.length === 0) {
-        contentHtml = `<div style="text-align:center;padding:30px 10px;color:var(--text-secondary);font-size:13px;">${this._t('no_data_available') || 'Keine Geräte oder Helfer gefunden.'}</div>`;
-      } else if (groupMode === 'domain') {
-        contentHtml = targetDomains.map(dom => {
-          const domEnts = allEnts.filter(eId => eId.startsWith(dom + '.'));
-          if (domEnts.length === 0) return '';
-          const meta = domainMeta[dom] || { label: dom, icon: 'mdi:tune-vertical' };
+      if (selectedRoomId === '_all') {
+        const roomSections = rooms.map(r => {
+          const cats = this._ensureRoomControlsCategories(r);
+          const blocks = cats.map(c => renderCategoryBlock(c)).filter(Boolean).join('');
+          if (!blocks) return '';
           return `
-            <div style="background:var(--bg-card);border:1px solid var(--border-glass);border-radius:14px;padding:14px 16px;margin-bottom:14px;">
-              <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <ha-icon icon="${meta.icon}" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
-                  <span>${meta.label}</span>
-                </div>
-                <span style="font-size:11px;font-weight:600;color:var(--text-secondary);background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:10px;">${domEnts.length}</span>
+            <div style="margin-bottom:20px;">
+              <div style="font-size:15px;font-weight:700;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px;padding-bottom:4px;border-bottom:1px solid var(--border-subtle);">
+                <ha-icon icon="mdi:home-outline" style="--mdc-icon-size:18px;"></ha-icon>
+                <span>${r.name || r.id}</span>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
-                ${domEnts.map(eId => this._renderGenericEntityRow(eId, this._hass.states[eId])).join('')}
-              </div>
+              <div>${blocks}</div>
             </div>
           `;
-        }).join('');
+        }).filter(Boolean).join('');
+
+        contentHtml = roomSections || `
+          <div style="text-align:center;padding:36px 16px;color:var(--text-secondary);font-size:13px;">
+            ${searchQ ? 'Keine Schalter gefunden, die dem Suchbegriff entsprechen.' : (this._t('no_data_available') || 'Keine Geräte oder Helfer gefunden.')}
+          </div>
+        `;
       } else {
-        const areaMap = new Map();
-        allEnts.forEach(eId => {
-          const area = this._resolveEntityArea(eId);
-          if (!areaMap.has(area.id)) {
-            areaMap.set(area.id, { id: area.id, name: area.name, entities: [] });
-          }
-          areaMap.get(area.id).entities.push(eId);
-        });
-
-        const sortedAreas = Array.from(areaMap.values()).sort((a, b) => {
-          if (a.id === '_unassigned') return 1;
-          if (b.id === '_unassigned') return -1;
-          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-        });
-
-        contentHtml = sortedAreas.map(area => {
-          const domSubgroups = targetDomains.map(dom => {
-            const ents = area.entities.filter(eId => eId.startsWith(dom + '.'));
-            if (ents.length === 0) return '';
-            const meta = domainMeta[dom] || { label: dom, icon: 'mdi:tune-vertical' };
-            return `
-              <div style="margin-top:10px;">
-                <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--accent);letter-spacing:0.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
-                  <ha-icon icon="${meta.icon}" style="--mdc-icon-size:14px;"></ha-icon>
-                  <span>${meta.label}</span>
-                </div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
-                  ${ents.map(eId => this._renderGenericEntityRow(eId, this._hass.states[eId])).join('')}
-                </div>
-              </div>
-            `;
-          }).join('');
-
-          return `
-            <div style="background:var(--bg-card);border:1px solid var(--border-glass);border-radius:14px;padding:14px 16px;margin-bottom:14px;">
-              <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <ha-icon icon="${area.id === '_unassigned' ? 'mdi:folder-outline' : 'mdi:home-outline'}" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
-                  <span>${area.name}</span>
-                </div>
-                <span style="font-size:11px;font-weight:600;color:var(--text-secondary);background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:10px;">${area.entities.length}</span>
-              </div>
-              <div>${domSubgroups}</div>
+        const curRoom = rooms.find(r => r.id === selectedRoomId);
+        if (curRoom) {
+          const cats = this._ensureRoomControlsCategories(curRoom);
+          const blocks = cats.map(c => renderCategoryBlock(c)).filter(Boolean).join('');
+          contentHtml = blocks || `
+            <div style="text-align:center;padding:36px 16px;color:var(--text-secondary);background:rgba(255,255,255,0.02);border:1px dashed var(--border-subtle);border-radius:12px;">
+              <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">Keine Schalter für ${curRoom.name || curRoom.id} konfiguriert</div>
+              <div style="font-size:12px;">Passe Kategorien und Schalter in den Einstellungen (Tab „Raum-Kategorien & Schalterzentrale“) an.</div>
             </div>
           `;
-        }).join('');
+        }
       }
 
       body.innerHTML = `
-        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-bottom:14px;">
           <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:10px;padding:6px 12px;flex:1;min-width:200px;">
             <ha-icon icon="mdi:magnify" style="--mdc-icon-size:18px;color:var(--accent);flex-shrink:0;"></ha-icon>
-            <input type="text" id="devicesSearchInp" value="${this._devicesSearchQuery || ''}" placeholder="Geräte & Helfer durchsuchen..." style="flex:1;background:transparent;border:none;outline:none;color:var(--text-primary);font-size:13px;">
-          </div>
-          <div class="vg-seg-group" style="display:inline-flex;gap:4px;background:rgba(255,255,255,0.04);padding:3px;border-radius:10px;border:1px solid var(--border-subtle);">
-            <button type="button" class="vg-seg-pill ${groupMode !== 'domain' ? 'active' : ''}" id="btnGroupArea" style="padding:6px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;">
-              ${this._t('group_by_area') || 'Nach Bereich'}
-            </button>
-            <button type="button" class="vg-seg-pill ${groupMode === 'domain' ? 'active' : ''}" id="btnGroupDomain" style="padding:6px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;">
-              ${this._t('group_by_domain') || 'Nach Domäne'}
-            </button>
+            <input type="text" id="devicesSearchInp" value="${this._devicesSearchQuery || ''}" placeholder="Geräte & Schalter durchsuchen..." style="flex:1;background:transparent;border:none;outline:none;color:var(--text-primary);font-size:13px;">
           </div>
         </div>
+        ${filterPillsHtml}
         <div id="devicesModalListContainer">${contentHtml}</div>
       `;
+
+      body.querySelectorAll('.room-filter-pill').forEach(pill => {
+        pill.onclick = () => {
+          const rId = pill.getAttribute('data-room-id');
+          this._selectedDevicesRoomId = rId;
+          this._activeModalContext = (rId === '_all') ? null : (rooms.find(r => r.id === rId) || null);
+          this._renderModalContent('devices_helpers');
+        };
+      });
 
       const sInp = body.querySelector('#devicesSearchInp');
       if (sInp) {
@@ -1735,22 +1920,259 @@ export const modalMethods = {
         };
       }
 
-      const bArea = body.querySelector('#btnGroupArea');
-      if (bArea) {
-        bArea.onclick = () => {
-          this._devicesModalGroupMode = 'area';
-          this._renderModalContent('devices_helpers');
-        };
+      this._bindInteractiveRows(body);
+    } else if (type === 'warnings' || type === 'alerts') {
+      title.innerHTML = `${this._icon('alert-circle', { size: 22, color: '#ef4444', style: 'margin-right:8px;' })} ${this._t('warnings_center_title') || 'Warnzentrale'}${this._getModalAreaSuffix()}`;
+
+      const criticalWarnings = [];
+      const warnings = [];
+      const notices = [];
+
+      // 1. Weather / Civil Protection / DWD / NINA
+      Object.keys(this._hass.states).forEach(eId => {
+        if (eId.startsWith('binary_sensor.warning_') || eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings') || eId.includes('nina') || (eId.includes('warning') && !eId.includes('camera'))) {
+          const s = this._hass.states[eId];
+          if (!s) return;
+          const isNumActive = !isNaN(parseInt(s.state)) && parseInt(s.state) > 0;
+          const isBoolActive = s.state === 'on';
+          if (isNumActive || isBoolActive) {
+            const headline = s.attributes?.headline || s.attributes?.event || s.attributes?.description || s.attributes?.friendly_name || 'Amtliche Unwetterwarnung';
+            const desc = s.attributes?.description || s.attributes?.instruction || s.attributes?.details || s.attributes?.headline || '';
+            const severity = (s.attributes?.severity || '').toLowerCase();
+            const valid = s.attributes?.valid_to || s.attributes?.expires || '';
+            const item = {
+              title: headline,
+              desc: desc !== headline ? desc : '',
+              detail: valid ? `Gültig bis: ${valid}` : '',
+              entity_id: eId,
+              icon: 'mdi:alert-decagram',
+              iconColor: '#ef4444'
+            };
+            if (severity === 'minor' || severity === 'moderate') {
+              warnings.push(item);
+            } else {
+              criticalWarnings.push(item);
+            }
+          }
+        }
+      });
+
+      // 2. Safety / Danger sensors (Smoke, Gas, CO, Moisture/Leak, Triggered Alarm)
+      Object.keys(this._hass.states).forEach(eId => {
+        const s = this._hass.states[eId];
+        if (!s) return;
+        const dc = (s.attributes?.device_class || '').toLowerCase();
+        const fname = s.attributes?.friendly_name || eId;
+
+        if (dc === 'smoke' || eId.includes('rauchmelder') || eId.includes('smoke')) {
+          if (s.state === 'on') {
+            criticalWarnings.push({
+              title: `Rauchalarm erkannt: ${fname}`,
+              desc: 'Rauch- oder Feuersensor meldet Alarmzustand!',
+              entity_id: eId,
+              icon: 'mdi:fire-alert',
+              iconColor: '#ef4444'
+            });
+          }
+        }
+        if (dc === 'gas' || dc === 'carbon_monoxide' || eId.includes('gas') || eId.includes('co_sensor')) {
+          if (s.state === 'on') {
+            criticalWarnings.push({
+              title: `Gefahrenmeldung: ${fname}`,
+              desc: 'Kritische Gas- oder Kohlenmonoxid-Konzentration erkannt!',
+              entity_id: eId,
+              icon: 'mdi:skull-crossbones',
+              iconColor: '#ef4444'
+            });
+          }
+        }
+        if (dc === 'moisture' || eId.includes('water') || eId.includes('leak') || eId.includes('wassermelder')) {
+          if (s.state === 'on') {
+            criticalWarnings.push({
+              title: `Wassereinbruch / Leckage: ${fname}`,
+              desc: 'Feuchtigkeitssensor hat Feuchtigkeit oder Überschwemmung gemeldet!',
+              entity_id: eId,
+              icon: 'mdi:water-alert',
+              iconColor: '#ef4444'
+            });
+          }
+        }
+        if (eId.startsWith('alarm_control_panel.')) {
+          if (s.state === 'triggered') {
+            criticalWarnings.push({
+              title: `Alarmanlage ausgelöst: ${fname}`,
+              desc: `Alarmsystem befindet sich im Zustand '${s.state}'!`,
+              entity_id: eId,
+              icon: 'mdi:alarm-light',
+              iconColor: '#ef4444'
+            });
+          }
+        }
+      });
+
+      // 3. Open Windows & Doors
+      const openOpenings = [];
+      Object.keys(this._hass.states).forEach(eId => {
+        if (!eId.startsWith('binary_sensor.')) return;
+        const s = this._hass.states[eId];
+        if (!s || s.state !== 'on') return;
+        const dc = (s.attributes?.device_class || '').toLowerCase();
+        const isOpening = dc === 'door' || dc === 'window' || dc === 'opening' || dc === 'garage_door' || eId.includes('fenster') || eId.includes('turkontakt') || eId.includes('door') || eId.includes('window');
+        if (isOpening) {
+          const fname = s.attributes?.friendly_name || eId;
+          const isWin = dc === 'window' || eId.includes('fenster') || eId.includes('window');
+          openOpenings.push({
+            title: isWin ? `Fenster geöffnet: ${fname}` : `Tür geöffnet: ${fname}`,
+            desc: `Kontakt meldet Status offen.`,
+            entity_id: eId,
+            icon: isWin ? 'mdi:window-open' : 'mdi:door-open',
+            iconColor: '#f59e0b'
+          });
+        }
+      });
+      if (openOpenings.length > 0) {
+        warnings.push(...openOpenings);
       }
 
-      const bDomain = body.querySelector('#btnGroupDomain');
-      if (bDomain) {
-        bDomain.onclick = () => {
-          this._devicesModalGroupMode = 'domain';
-          this._renderModalContent('devices_helpers');
-        };
+      // 4. Critical Batteries (< 15%) & Low Batteries (< 25%)
+      const batteryWarns = [];
+      Object.keys(this._hass.states).forEach(eId => {
+        const s = this._hass.states[eId];
+        if (!s) return;
+        const isBatClass = s.attributes?.device_class === 'battery';
+        const isBatName = eId.startsWith('sensor.') && (eId.includes('battery') || eId.includes('batterie'));
+        const hasBatLevel = s.attributes?.battery_level != null;
+        if (isBatClass || isBatName || hasBatLevel) {
+          if (eId.startsWith('binary_sensor.')) return;
+          const val = hasBatLevel ? parseFloat(s.attributes.battery_level) : parseFloat(s.state);
+          if (!isNaN(val) && val >= 0 && val <= 100) {
+            const fname = s.attributes?.friendly_name || eId;
+            if (val <= 12) {
+              criticalWarnings.push({
+                title: `Batterie fast leer (${Math.round(val)}%): ${fname}`,
+                desc: 'Gerät benötigt umgehend einen Batteriewechsel!',
+                entity_id: eId,
+                icon: 'mdi:battery-alert',
+                iconColor: '#ef4444'
+              });
+            } else if (val <= 22) {
+              batteryWarns.push({
+                title: `Batteriestand niedrig (${Math.round(val)}%): ${fname}`,
+                desc: 'Batterie bald tauschen.',
+                entity_id: eId,
+                icon: 'mdi:battery-low',
+                iconColor: '#f59e0b'
+              });
+            }
+          }
+        }
+      });
+      if (batteryWarns.length > 0) {
+        notices.push(...batteryWarns);
       }
 
+      // 5. Configured Room Entities unavailable
+      const unavailableEnts = [];
+      (this._config.rooms || []).forEach(r => {
+        ['light_entity', 'climate_entity', 'temp_entity', 'presence_entity', 'window_entity'].forEach(prop => {
+          const eid = r[prop];
+          if (eid && this._hass.states[eid]?.state === 'unavailable') {
+            const fname = this._hass.states[eid]?.attributes?.friendly_name || eid;
+            unavailableEnts.push({
+              title: `Gerät nicht erreichbar (${r.name}): ${fname}`,
+              desc: `Entität '${eid}' meldet 'unavailable'.`,
+              entity_id: eid,
+              icon: 'mdi:lan-disconnect',
+              iconColor: '#94a3b8'
+            });
+          }
+        });
+      });
+      if (unavailableEnts.length > 0) {
+        notices.push(...unavailableEnts);
+      }
+
+      // Render Modal Content
+      const totalCount = criticalWarnings.length + warnings.length + notices.length;
+
+      if (totalCount === 0) {
+        body.innerHTML = `
+          <div class="alert-card-ok" style="text-align:center;padding:40px 20px;">
+            <div style="font-size:36px;color:#10b981;margin-bottom:12px;">
+              <ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size:48px;"></ha-icon>
+            </div>
+            <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">
+              ${this._t('no_active_warnings') || 'Keine aktiven Warnungen'}
+            </div>
+            <div style="font-size:13px;color:var(--text-secondary);max-width:440px;margin:0 auto;line-height:1.5;">
+              ${this._t('all_systems_normal') || 'Alle Sicherheitssensoren, Batteriestände und Wettermeldungen befinden sich im normalen Bereich.'}
+            </div>
+          </div>
+        `;
+      } else {
+        const renderItem = (item, cls) => `
+          <div class="${cls}">
+            <ha-icon icon="${item.icon}" style="--mdc-icon-size:24px;color:${item.iconColor};flex-shrink:0;margin-top:2px;"></ha-icon>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:var(--text-primary);line-height:1.3;">${item.title}</div>
+              ${item.desc ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:3px;line-height:1.4;">${item.desc}</div>` : ''}
+              ${item.detail ? `<div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:4px;">${item.detail}</div>` : ''}
+            </div>
+            ${item.entity_id ? `
+              <button class="btn-micro btn-moreinfo" data-entity="${item.entity_id}" style="flex-shrink:0;padding:4px 8px;font-size:11px;">
+                ${this._t('device_details') || 'Details'}
+              </button>
+            ` : ''}
+          </div>
+        `;
+
+        body.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            ${criticalWarnings.length > 0 ? `
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                  <ha-icon icon="mdi:alert-circle" style="--mdc-icon-size:16px;"></ha-icon>
+                  <span>${this._t('critical_warnings') || 'Kritische Warnungen'} (${criticalWarnings.length})</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  ${criticalWarnings.map(it => renderItem(it, 'alert-card-critical')).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${warnings.length > 0 ? `
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                  <ha-icon icon="mdi:alert" style="--mdc-icon-size:16px;"></ha-icon>
+                  <span>${this._t('warnings_label') || 'Warnungen & Prüfpunkte'} (${warnings.length})</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  ${warnings.map(it => renderItem(it, 'alert-card-warning')).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${notices.length > 0 ? `
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                  <ha-icon icon="mdi:information-outline" style="--mdc-icon-size:16px;"></ha-icon>
+                  <span>${this._t('notices_label') || 'Hinweise & Status'} (${notices.length})</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  ${notices.map(it => renderItem(it, 'alert-card-notice')).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+
+      body.querySelectorAll('.btn-moreinfo').forEach(btn => {
+        btn.onclick = () => {
+          const eid = btn.getAttribute('data-entity');
+          if (eid) this._fireMoreInfo(eid);
+        };
+      });
       this._bindInteractiveRows(body);
     } else if (type === 'weather') {
       title.innerHTML = `${this._icon('weather-partlycloudy', { size: 22, cls: 'icon-weather', style: 'margin-right:8px;' })} ${this._t('weather_modal_title')}`;
@@ -1894,7 +2316,7 @@ export const modalMethods = {
       }
     } else if (type === 'stats') {
       if (title) {
-        title.innerHTML = `${this._icon('chart-bar', { size: 22, cls: 'icon-stats', style: 'margin-right:8px;' })} ${this._t('stats_title')}`;
+        title.innerHTML = `${this._icon('chart-bar', { size: 22, cls: 'icon-stats', style: 'margin-right:8px;' })} ${this._t('stats_title')}${this._getModalAreaSuffix()}`;
       }
 
       const updateStatsUi = () => {
@@ -2390,6 +2812,18 @@ export const modalMethods = {
       const s = this._hass.states[eId];
       if (s && s.state != null) {
         sel.value = s.state;
+      }
+    });
+
+    body.querySelectorAll('.compact-select-container[data-entity]').forEach(cont => {
+      const eId = cont.getAttribute('data-entity');
+      const s = this._hass.states[eId];
+      if (s && s.state != null) {
+        const valEl = cont.querySelector('.compact-select-value');
+        if (valEl && valEl.textContent !== s.state) valEl.textContent = s.state;
+        cont.querySelectorAll('.compact-select-opt').forEach(optBtn => {
+          optBtn.classList.toggle('selected', optBtn.getAttribute('data-select-option') === s.state);
+        });
       }
     });
   }

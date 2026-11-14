@@ -2,9 +2,21 @@
  * Lazy-loaded chart & statistics helpers backed by Python Recorder downsampling (`atglance/stats/history`).
  */
 
-export async function fetchHistoryViaBackend(hass, entityIds, hours = 24, maxPoints = 120) {
+const _STATS_CLIENT_CACHE = new Map();
+const _STATS_CLIENT_TTL = 180000; // 3 minutes
+
+export async function fetchHistoryViaBackend(hass, entityIds, hours = 24, maxPoints = 80) {
   const cleanIds = [...new Set((entityIds || []).filter((e) => typeof e === 'string' && e.includes('.')))];
   if (!hass || !hass.callWS || cleanIds.length === 0) return {};
+
+  const cacheKey = `${cleanIds.slice().sort().join(',')}_${hours}_${maxPoints}`;
+  const now = Date.now();
+  if (_STATS_CLIENT_CACHE.has(cacheKey)) {
+    const entry = _STATS_CLIENT_CACHE.get(cacheKey);
+    if (now - entry.time < _STATS_CLIENT_TTL) {
+      return entry.series;
+    }
+  }
 
   try {
     const res = await hass.callWS({
@@ -13,7 +25,9 @@ export async function fetchHistoryViaBackend(hass, entityIds, hours = 24, maxPoi
       hours,
       max_points: maxPoints,
     });
-    return (res && res.series) || {};
+    const series = (res && res.series) || {};
+    _STATS_CLIENT_CACHE.set(cacheKey, { time: now, series });
+    return series;
   } catch (err) {
     console.warn('[AtGlance] Stats history fetch error:', err);
     return {};

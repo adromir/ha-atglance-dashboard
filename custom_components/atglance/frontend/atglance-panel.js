@@ -1379,7 +1379,8 @@ class AtGlancePanel extends HTMLElement {
       finalIcon = 'mdi:chart-box-outline';
     }
 
-    return { text: displayVal, entityId: entityId.trim(), isAlert, iconName: finalIcon };
+    const options = (s.attributes?.options && Array.isArray(s.attributes.options)) ? s.attributes.options : null;
+    return { text: displayVal, entityId: entityId.trim(), isAlert, iconName: finalIcon, options };
   }
 
   _updateRoomCard(room, idx) {
@@ -1399,40 +1400,87 @@ class AtGlancePanel extends HTMLElement {
         }
       });
 
-      badgesForRoom.forEach((b, bIdx) => {
-        const bId = b.id || bIdx;
-        let bEl = card.querySelector(`#badge_${idx}_${bId}`);
-        const valObj = this._resolveBentoBadgeValue(b, room);
-        if (valObj && valObj.text) {
-          if (!bEl) {
-            bEl = document.createElement('span');
-            bEl.className = 'env-pill bento-badge-pill';
-            bEl.id = `badge_${idx}_${bId}`;
-            const battWarn = envBar.querySelector('.env-batt-warn');
-            if (battWarn) envBar.insertBefore(bEl, battWarn);
-            else envBar.appendChild(bEl);
+        badgesForRoom.forEach((b, bIdx) => {
+          const bId = b.id || bIdx;
+          let bEl = card.querySelector(`#badge_${idx}_${bId}`);
+          const valObj = this._resolveBentoBadgeValue(b, room);
+          if (valObj && valObj.text) {
+            const isSelect = Boolean(valObj.options && Array.isArray(valObj.options) && valObj.options.length > 0);
+            const iconName = valObj.iconName || ((b.icon && b.icon.includes(':')) ? b.icon : (MDI_ICON_MAP[b.icon] || (b.icon ? 'mdi:' + b.icon : 'mdi:chart-box-outline')));
+            const alertStyle = valObj.isAlert ? 'border-color:rgba(245,158,11,0.55);background:rgba(245,158,11,0.18);color:#fbbf24;font-weight:700;' : '';
+
+            if (isSelect) {
+              if (!bEl || bEl.tagName === 'SPAN') {
+                if (bEl) bEl.remove();
+                bEl = document.createElement('div');
+                bEl.className = 'compact-select-container bento-badge-select';
+                bEl.id = `badge_${idx}_${bId}`;
+                const battWarn = envBar.querySelector('.env-batt-warn');
+                if (battWarn) envBar.insertBefore(bEl, battWarn);
+                else envBar.appendChild(bEl);
+              }
+              bEl.innerHTML = `
+                <button class="compact-select-trigger env-pill bento-badge-pill ${valObj.isAlert ? 'badge-alert' : ''}" type="button" style="${alertStyle}" title="${b.name || 'Badge'}: ${valObj.text}">
+                  ${this._icon(iconName, { size: 11, style: 'margin-right:2px;' })}
+                  <span class="compact-select-value">${valObj.text}</span>
+                  <ha-icon icon="mdi:chevron-down" style="--mdc-icon-size:11px;opacity:0.7;margin-left:2px;"></ha-icon>
+                </button>
+                <div class="compact-select-dropdown">
+                  ${valObj.options.map(opt => `
+                    <button type="button" class="compact-select-opt ${opt === valObj.text ? 'selected' : ''}" data-badge-select-entity="${valObj.entityId}" data-badge-select-opt="${opt}">
+                      ${opt === valObj.text ? '<ha-icon icon="mdi:check" style="--mdc-icon-size:12px;color:var(--accent);"></ha-icon>' : ''}
+                      <span>${opt}</span>
+                    </button>
+                  `).join('')}
+                </div>
+              `;
+              const trig = bEl.querySelector('.compact-select-trigger');
+              if (trig) {
+                trig.onclick = (e) => {
+                  e.stopPropagation();
+                  bEl.classList.toggle('open');
+                };
+              }
+              bEl.querySelectorAll('.compact-select-opt').forEach(optBtn => {
+                optBtn.onclick = (e) => {
+                  e.stopPropagation();
+                  const opt = optBtn.getAttribute('data-badge-select-opt');
+                  const eId = optBtn.getAttribute('data-badge-select-entity');
+                  bEl.classList.remove('open');
+                  this._callService(eId.split('.')[0], 'select_option', { entity_id: eId, option: opt });
+                };
+              });
+            } else {
+              if (!bEl || bEl.tagName === 'DIV') {
+                if (bEl) bEl.remove();
+                bEl = document.createElement('span');
+                bEl.className = 'env-pill bento-badge-pill';
+                bEl.id = `badge_${idx}_${bId}`;
+                const battWarn = envBar.querySelector('.env-batt-warn');
+                if (battWarn) envBar.insertBefore(bEl, battWarn);
+                else envBar.appendChild(bEl);
+              }
+              bEl.innerHTML = `${this._icon(iconName, { size: 11, style: 'margin-right:3px;' })} <span>${valObj.text}</span>`;
+              bEl.style.display = 'inline-flex';
+              bEl.title = `${b.name || 'Badge'}: ${valObj.text}`;
+              if (valObj.isAlert) {
+                bEl.classList.add('badge-alert');
+                bEl.style.borderColor = 'rgba(245,158,11,0.55)';
+                bEl.style.background = 'rgba(245,158,11,0.18)';
+                bEl.style.color = '#fbbf24';
+                bEl.style.fontWeight = '700';
+              } else {
+                bEl.classList.remove('badge-alert');
+                bEl.style.borderColor = '';
+                bEl.style.background = '';
+                bEl.style.color = '';
+                bEl.style.fontWeight = '';
+              }
+            }
+          } else if (bEl) {
+            bEl.remove();
           }
-          const iconName = valObj.iconName || ((b.icon && b.icon.includes(':')) ? b.icon : (MDI_ICON_MAP[b.icon] || (b.icon ? 'mdi:' + b.icon : 'mdi:chart-box-outline')));
-          bEl.innerHTML = `${this._icon(iconName, { size: 11, style: 'margin-right:3px;' })} <span>${valObj.text}</span>`;
-          bEl.style.display = 'inline-flex';
-          bEl.title = `${b.name || 'Badge'}: ${valObj.text}`;
-          if (valObj.isAlert) {
-            bEl.classList.add('badge-alert');
-            bEl.style.borderColor = 'rgba(245,158,11,0.55)';
-            bEl.style.background = 'rgba(245,158,11,0.18)';
-            bEl.style.color = '#fbbf24';
-            bEl.style.fontWeight = '700';
-          } else {
-            bEl.classList.remove('badge-alert');
-            bEl.style.borderColor = '';
-            bEl.style.background = '';
-            bEl.style.color = '';
-            bEl.style.fontWeight = '';
-          }
-        } else if (bEl) {
-          bEl.remove();
-        }
-      });
+        });
     }
 
     // 4. Battery warning (< 10%) on Bento Card
@@ -1783,6 +1831,104 @@ class AtGlancePanel extends HTMLElement {
     return defaultCats;
   }
 
+  _ensureRoomLights(room) {
+    if (!room) return [];
+    if (Array.isArray(room.lights)) {
+      return room.lights;
+    }
+    const detected = [];
+    if (room.light_entity && this._hass?.states[room.light_entity]) {
+      detected.push(room.light_entity.trim());
+    }
+    const allLightsEntity = (this._config.all_lights_entity || 'light.licht_wohnung').toLowerCase();
+    if (this._hass && this._hass.states) {
+      Object.keys(this._hass.states).forEach(eId => {
+        if (!eId.startsWith('light.')) return;
+        if (eId.toLowerCase() === allLightsEntity || eId.includes('alle') || eId.includes('all') || eId.includes('wohnung')) return;
+        if (this._isEntityInRoom(eId, room.id, room.name)) {
+          detected.push(eId);
+        }
+      });
+    }
+    room.lights = [...new Set(detected)];
+    return room.lights;
+  }
+
+  _ensureRoomControlsCategories(room) {
+    if (!room) return [];
+    if (Array.isArray(room.controls_categories) && room.controls_categories.length > 0) {
+      return room.controls_categories;
+    }
+    if (Array.isArray(room.overlay_categories) && room.overlay_categories.length > 0) {
+      room.controls_categories = JSON.parse(JSON.stringify(room.overlay_categories));
+      return room.controls_categories;
+    }
+
+    const targetDomains = [
+      'switch', 'light', 'input_boolean', 'input_button', 'button',
+      'input_select', 'select', 'input_number', 'number',
+      'fan', 'cover', 'lock', 'input_datetime', 'script', 'scene'
+    ];
+
+    const matchSwitches = [];
+    const matchHelpers = [];
+    const matchActions = [];
+
+    if (this._hass && this._hass.states) {
+      Object.keys(this._hass.states).forEach(eId => {
+        const dom = eId.split('.')[0];
+        if (!targetDomains.includes(dom)) return;
+        if (this._isEntityInRoom(eId, room.id, room.name)) {
+          if (['switch', 'fan', 'cover', 'lock'].includes(dom)) {
+            matchSwitches.push(eId);
+          } else if (['input_boolean', 'input_select', 'select', 'input_number', 'number', 'input_datetime'].includes(dom)) {
+            matchHelpers.push(eId);
+          } else if (['script', 'scene', 'input_button', 'button'].includes(dom)) {
+            matchActions.push(eId);
+          } else if (dom === 'light' && (!room.light_entity || eId !== room.light_entity)) {
+            matchSwitches.push(eId);
+          }
+        }
+      });
+    }
+
+    const defaultCats = [];
+    if (matchSwitches.length > 0) {
+      defaultCats.push({
+        id: 'cat_switches',
+        name: 'Schalter & Steckdosen',
+        icon: 'mdi:power-socket-eu',
+        entities: [...new Set(matchSwitches)]
+      });
+    }
+    if (matchHelpers.length > 0) {
+      defaultCats.push({
+        id: 'cat_helpers',
+        name: 'Helfer & Kontrollen',
+        icon: 'mdi:tune-vertical',
+        entities: [...new Set(matchHelpers)]
+      });
+    }
+    if (matchActions.length > 0) {
+      defaultCats.push({
+        id: 'cat_actions',
+        name: 'Szenen & Aktionen',
+        icon: 'mdi:palette-outline',
+        entities: [...new Set(matchActions)]
+      });
+    }
+    if (defaultCats.length === 0) {
+      defaultCats.push({
+        id: 'cat_default',
+        name: 'Geräte & Schalter',
+        icon: 'mdi:tune-vertical',
+        entities: []
+      });
+    }
+    room.controls_categories = defaultCats;
+    return defaultCats;
+  }
+
 
   _render() {
     if (!this._configLoaded) {
@@ -1982,6 +2128,25 @@ class AtGlancePanel extends HTMLElement {
                         const alertStyle = valObj.isAlert
                           ? 'border-color:rgba(245,158,11,0.55);background:rgba(245,158,11,0.18);color:#fbbf24;font-weight:700;'
                           : '';
+                        if (valObj.options && Array.isArray(valObj.options) && valObj.options.length > 0) {
+                          return `
+                            <div class="compact-select-container bento-badge-select" id="badge_${idx}_${bId}">
+                              <button class="compact-select-trigger env-pill bento-badge-pill ${valObj.isAlert ? 'badge-alert' : ''}" type="button" style="${alertStyle}" title="${b.name || 'Badge'}: ${valObj.text}">
+                                ${this._icon(iconName, { size: 11, style: 'margin-right:2px;' })}
+                                <span class="compact-select-value">${valObj.text}</span>
+                                <ha-icon icon="mdi:chevron-down" style="--mdc-icon-size:11px;opacity:0.7;margin-left:2px;"></ha-icon>
+                              </button>
+                              <div class="compact-select-dropdown">
+                                ${valObj.options.map(opt => `
+                                  <button type="button" class="compact-select-opt ${opt === valObj.text ? 'selected' : ''}" data-badge-select-entity="${valObj.entityId}" data-badge-select-opt="${opt}">
+                                    ${opt === valObj.text ? '<ha-icon icon="mdi:check" style="--mdc-icon-size:12px;color:var(--accent);"></ha-icon>' : ''}
+                                    <span>${opt}</span>
+                                  </button>
+                                `).join('')}
+                              </div>
+                            </div>
+                          `;
+                        }
                         return `<span class="env-pill bento-badge-pill ${valObj.isAlert ? 'badge-alert' : ''}" id="badge_${idx}_${bId}" style="display:inline-flex;${alertStyle}" title="${b.name || 'Badge'}: ${valObj.text}">${this._icon(iconName, { size: 11, style: 'margin-right:3px;' })} <span>${valObj.text}</span></span>`;
                       }).join('');
                     })()}
@@ -2177,6 +2342,38 @@ class AtGlancePanel extends HTMLElement {
     this.shadowRoot.getElementById('chipLock').addEventListener('click', () => this._openModal('security'));
     this.shadowRoot.getElementById('chipAlarmo').addEventListener('click', () => this._openModal('alarmo'));
     this.shadowRoot.getElementById('chipWeather').addEventListener('click', () => this._openModal('weather'));
+    const chipWarning = this.shadowRoot.getElementById('chipWarning');
+    if (chipWarning) chipWarning.addEventListener('click', () => this._openModal('warnings'));
+
+    // Global click listener to close compact select dropdowns
+    this.shadowRoot.addEventListener('click', (e) => {
+      if (!e.target.closest('.compact-select-container')) {
+        this.shadowRoot.querySelectorAll('.compact-select-container.open').forEach(c => c.classList.remove('open'));
+      }
+    });
+
+    // Bento Badge Select Clicks
+    this.shadowRoot.querySelectorAll('.bento-badge-select .compact-select-trigger').forEach(trig => {
+      trig.onclick = (e) => {
+        e.stopPropagation();
+        const cont = trig.closest('.compact-select-container');
+        if (cont) {
+          const wasOpen = cont.classList.contains('open');
+          this.shadowRoot.querySelectorAll('.compact-select-container.open').forEach(c => c.classList.remove('open'));
+          if (!wasOpen) cont.classList.add('open');
+        }
+      };
+    });
+    this.shadowRoot.querySelectorAll('.bento-badge-select .compact-select-opt').forEach(optBtn => {
+      optBtn.onclick = (e) => {
+        e.stopPropagation();
+        const opt = optBtn.getAttribute('data-badge-select-opt');
+        const eId = optBtn.getAttribute('data-badge-select-entity');
+        const cont = optBtn.closest('.compact-select-container');
+        if (cont) cont.classList.remove('open');
+        this._callService(eId.split('.')[0], 'select_option', { entity_id: eId, option: opt });
+      };
+    });
 
     // Dock Items (Dynamic click binding)
     const navigateToSettings = () => {
@@ -2221,7 +2418,7 @@ class AtGlancePanel extends HTMLElement {
     // Room Card Click (Opens Room Detail Overlay)
     this.shadowRoot.querySelectorAll('.room-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.action-circle') || e.target.closest('.quick-climate-stepper')) return;
+        if (e.target.closest('.action-circle') || e.target.closest('.quick-climate-stepper') || e.target.closest('.compact-select-container')) return;
         const idx = parseInt(card.getAttribute('data-room-idx'));
         const room = this._config.rooms[idx];
         if (room) {
@@ -2243,7 +2440,7 @@ class AtGlancePanel extends HTMLElement {
           const lEnt = btn.getAttribute('data-entity') || room.light_entity;
           if (lEnt) this._callService('light', 'toggle', { entity_id: lEnt });
         } else if (action === 'climate') {
-          this._openModal('climate');
+          this._openModal('climate', room);
         } else if (action === 'media') {
           const mEnt = btn.getAttribute('data-entity') || room.media_entity || room.audio_entity || room.video_entity;
           if (mEnt) this._callService('media_player', 'media_play_pause', { entity_id: mEnt });
@@ -2255,7 +2452,7 @@ class AtGlancePanel extends HTMLElement {
             this._callService('lock', isLocked ? 'unlock' : 'lock', { entity_id: lEnt });
           }
         } else if (action === 'devices_helpers') {
-          this._openModal('devices_helpers');
+          this._openModal('devices_helpers', room);
         } else if (action === 'switch' && room.switch_entity) {
           this._callService('switch', 'toggle', { entity_id: room.switch_entity });
         } else if (action === 'custom') {
