@@ -1,4 +1,4 @@
-"""Vision Glass Home Assistant integration: backend storage, discovery, stats, and custom panel."""
+"""AtGlance Dashboard Home Assistant integration: backend storage, discovery, stats, and custom panel."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ from .const import (
     VERSION,
 )
 from .discovery import build_initial_config, get_area_entities_map, sync_rooms_with_areas
-from .storage import VisionGlassStore
+from .storage import AtGlanceStore
 
 try:
     from homeassistant.components.http import StaticPathConfig
@@ -62,7 +62,7 @@ def _compute_build_id() -> str:
 
 
 async def async_set_default_dashboard(hass: HomeAssistant, enable: bool = True) -> None:
-    """Set or unset Vision Glass as the default dashboard in Home Assistant system and user data."""
+    """Set or unset AtGlance as the default dashboard in Home Assistant system and user data."""
     target_panel = PANEL_URL if enable else "lovelace"
 
     # 1. System-wide default panel in .storage/frontend.system_data
@@ -96,19 +96,25 @@ async def async_set_default_dashboard(hass: HomeAssistant, enable: bool = True) 
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register WebSocket commands for the Vision Glass integration."""
-    websocket_api.async_register_command(hass, ws_config_get)
-    websocket_api.async_register_command(hass, ws_config_save)
-    websocket_api.async_register_command(hass, ws_discovery_rooms)
-    websocket_api.async_register_command(hass, ws_discovery_sync)
-    websocket_api.async_register_command(hass, ws_summary_get)
-    websocket_api.async_register_command(hass, ws_stats_history)
+    """Register WebSocket commands for the AtGlance integration."""
+    for cmd in (ws_config_get, ws_config_get_legacy):
+        websocket_api.async_register_command(hass, cmd)
+    for cmd in (ws_config_save, ws_config_save_legacy):
+        websocket_api.async_register_command(hass, cmd)
+    for cmd in (ws_discovery_rooms, ws_discovery_rooms_legacy):
+        websocket_api.async_register_command(hass, cmd)
+    for cmd in (ws_discovery_sync, ws_discovery_sync_legacy):
+        websocket_api.async_register_command(hass, cmd)
+    for cmd in (ws_summary_get, ws_summary_get_legacy):
+        websocket_api.async_register_command(hass, cmd)
+    for cmd in (ws_stats_history, ws_stats_history_legacy):
+        websocket_api.async_register_command(hass, cmd)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Initialize Vision Glass store, static frontend assets, and custom sidebar panel."""
-    store = VisionGlassStore(hass)
+    """Initialize AtGlance store, static frontend assets, and custom sidebar panel."""
+    store = AtGlanceStore(hass)
     await store.async_load()
 
     should_migrate = entry.data.get(CONF_MIGRATE_LOVELACE, True)
@@ -134,7 +140,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             updated_cfg, u_count, a_count = sync_rooms_with_areas(hass, store.data)
             if u_count > 0 or a_count > 0:
                 await store.async_save(updated_cfg)
-                hass.bus.async_fire("vision_glass_config_updated", {"updated": u_count, "added": a_count})
+                hass.bus.async_fire("atglance_config_updated", {"updated": u_count, "added": a_count})
 
         hass.async_create_task(_async_sync())
 
@@ -152,9 +158,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[f"{DOMAIN}_static_registered"] = True
 
     build_id = await hass.async_add_executor_job(_compute_build_id)
-    module_url = f"{STATIC_URL}/vision-glass-panel.js?v={build_id}"
+    module_url = f"{STATIC_URL}/atglance-panel.js?v={build_id}"
 
-    # Set Vision Glass as default dashboard (system-wide and per-user) if enabled
+    # Set AtGlance as default dashboard (system-wide and per-user) if enabled
     if store.data.get(CONF_DEFAULT_DASHBOARD, DEFAULT_SET_DEFAULT_DASHBOARD):
         await async_set_default_dashboard(hass, True)
 
@@ -177,7 +183,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await panel_custom.async_register_panel(
         hass,
-        webcomponent_name="vision-glass-panel",
+        webcomponent_name="atglance-panel",
         frontend_url_path=PANEL_URL,
         module_url=module_url,
         sidebar_title=sidebar_title,
@@ -195,20 +201,17 @@ async def _options_changed(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Remove Vision Glass sidebar panel cleanly."""
+    """Remove AtGlance sidebar panel cleanly."""
     frontend.async_remove_panel(hass, PANEL_URL)
     hass.data.pop(DOMAIN, None)
     return True
 
 
-@websocket_api.websocket_command({vol.Required("type"): "vision_glass/config/get"})
-@websocket_api.async_response
-async def ws_config_get(
+async def _handle_ws_config_get(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Return current Vision Glass config and pre-computed summary with auto-sync."""
     domain_data = hass.data.get(DOMAIN) or {}
-    store: VisionGlassStore | None = domain_data.get("store")
+    store: AtGlanceStore | None = domain_data.get("store")
     config = store.data if store else {}
     if store is not None and config.get("_initialized"):
         updated_cfg, updated_count, added_count = sync_rooms_with_areas(hass, config)
@@ -225,21 +228,29 @@ async def ws_config_get(
     )
 
 
-@websocket_api.websocket_command(
-    {
-        vol.Required("type"): "vision_glass/config/save",
-        vol.Required("config"): dict,
-    }
-)
+@websocket_api.websocket_command({vol.Required("type"): "atglance/config/get"})
 @websocket_api.async_response
-async def ws_config_save(
+async def ws_config_get(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Persist updated Vision Glass config and sync Home Assistant theme mode and default dashboard."""
+    await _handle_ws_config_get(hass, connection, msg)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "vision_glass/config/get"})
+@websocket_api.async_response
+async def ws_config_get_legacy(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    await _handle_ws_config_get(hass, connection, msg)
+
+
+async def _handle_ws_config_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
     domain_data = hass.data.get(DOMAIN) or {}
-    store: VisionGlassStore | None = domain_data.get("store")
+    store: AtGlanceStore | None = domain_data.get("store")
     if store is None:
-        connection.send_error(msg["id"], "not_loaded", "Vision Glass integration is not loaded")
+        connection.send_error(msg["id"], "not_loaded", "AtGlance integration is not loaded")
         return
 
     saved = await store.async_save(msg["config"])
@@ -249,25 +260,55 @@ async def ws_config_save(
     connection.send_result(msg["id"], {"config": saved, "summary": summary})
 
 
-@websocket_api.websocket_command({vol.Required("type"): "vision_glass/discovery/rooms"})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "atglance/config/save",
+        vol.Required("config"): dict,
+    }
+)
+@websocket_api.async_response
+async def ws_config_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    await _handle_ws_config_save(hass, connection, msg)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "vision_glass/config/save",
+        vol.Required("config"): dict,
+    }
+)
+@websocket_api.async_response
+async def ws_config_save_legacy(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    await _handle_ws_config_save(hass, connection, msg)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "atglance/discovery/rooms"})
 @callback
 def ws_discovery_rooms(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Return authoritative HA area and entity registry mapping."""
     connection.send_result(msg["id"], get_area_entities_map(hass))
 
 
-@websocket_api.websocket_command({vol.Required("type"): "vision_glass/discovery/sync"})
-@websocket_api.async_response
-async def ws_discovery_sync(
+@websocket_api.websocket_command({vol.Required("type"): "vision_glass/discovery/rooms"})
+@callback
+def ws_discovery_rooms_legacy(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Synchronize existing rooms with HA areas and discover newly added areas."""
+    connection.send_result(msg["id"], get_area_entities_map(hass))
+
+
+async def _handle_ws_discovery_sync(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
     domain_data = hass.data.get(DOMAIN) or {}
-    store: VisionGlassStore | None = domain_data.get("store")
+    store: AtGlanceStore | None = domain_data.get("store")
     if store is None:
-        connection.send_error(msg["id"], "not_loaded", "Vision Glass integration is not loaded")
+        connection.send_error(msg["id"], "not_loaded", "AtGlance integration is not loaded")
         return
 
     updated_cfg, updated_count, added_count = sync_rooms_with_areas(hass, store.data)
@@ -283,16 +324,69 @@ async def ws_discovery_sync(
     )
 
 
-@websocket_api.websocket_command({vol.Required("type"): "vision_glass/summary/get"})
+@websocket_api.websocket_command({vol.Required("type"): "atglance/discovery/sync"})
+@websocket_api.async_response
+async def ws_discovery_sync(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    await _handle_ws_discovery_sync(hass, connection, msg)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "vision_glass/discovery/sync"})
+@websocket_api.async_response
+async def ws_discovery_sync_legacy(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    await _handle_ws_discovery_sync(hass, connection, msg)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "atglance/summary/get"})
 @callback
 def ws_summary_get(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Compute and return server-side dashboard summary metrics."""
     domain_data = hass.data.get(DOMAIN) or {}
-    store: VisionGlassStore | None = domain_data.get("store")
+    store: AtGlanceStore | None = domain_data.get("store")
     config = store.data if store else {}
     connection.send_result(msg["id"], compute_summary(hass, config))
+
+
+@websocket_api.websocket_command({vol.Required("type"): "vision_glass/summary/get"})
+@callback
+def ws_summary_get_legacy(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    domain_data = hass.data.get(DOMAIN) or {}
+    store: AtGlanceStore | None = domain_data.get("store")
+    config = store.data if store else {}
+    connection.send_result(msg["id"], compute_summary(hass, config))
+
+
+async def _handle_ws_stats_history(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    data = await async_get_history(
+        hass,
+        msg["entity_ids"],
+        hours=msg.get("hours", 24),
+        max_points=msg.get("max_points", 120),
+    )
+    connection.send_result(msg["id"], data)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "atglance/stats/history",
+        vol.Required("entity_ids"): [str],
+        vol.Optional("hours", default=24): vol.Coerce(int),
+        vol.Optional("max_points", default=120): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_stats_history(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    await _handle_ws_stats_history(hass, connection, msg)
 
 
 @websocket_api.websocket_command(
@@ -304,14 +398,7 @@ def ws_summary_get(
     }
 )
 @websocket_api.async_response
-async def ws_stats_history(
+async def ws_stats_history_legacy(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Query Recorder history and return downsampled SVG-ready series."""
-    data = await async_get_history(
-        hass,
-        msg["entity_ids"],
-        hours=msg.get("hours", 24),
-        max_points=msg.get("max_points", 120),
-    )
-    connection.send_result(msg["id"], data)
+    await _handle_ws_stats_history(hass, connection, msg)

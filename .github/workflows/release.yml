@@ -34,11 +34,11 @@ jobs:
 
       - name: Validate Integration & Run Tests
         run: |
-          if [ ! -f "custom_components/vision_glass/manifest.json" ]; then
-            echo "Error: custom_components/vision_glass/manifest.json not found!"
+          if [ ! -f "custom_components/atglance/manifest.json" ]; then
+            echo "Error: custom_components/atglance/manifest.json not found!"
             exit 1
           fi
-          python -m compileall -q custom_components/vision_glass
+          python -m compileall -q custom_components/atglance
           python -m unittest -v tests/test_python_backend.py
           node tests/test_frontend_modules.mjs
 

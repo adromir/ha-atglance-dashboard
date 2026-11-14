@@ -1,11 +1,11 @@
 /**
- * Vision Glass - Default Landing Page Sync
- * Automatically ensures Home Assistant opens directly into Vision Glass (/vision-glass)
+ * AtGlance Dashboard - Default Landing Page Sync
+ * Automatically ensures Home Assistant opens directly into AtGlance (/atglance)
  * instead of the default /lovelace overview when launched in a browser or companion app.
  */
 (function () {
   try {
-    localStorage.setItem('defaultPanel', JSON.stringify('vision-glass'));
+    localStorage.setItem('defaultPanel', JSON.stringify('atglance'));
   } catch (_) {}
 
   // Check if browser is loading root '/' or default lovelace overview on cold load
@@ -18,10 +18,10 @@
 
   const isBypass =
     window.location.search.includes('lovelace=1') ||
-    sessionStorage.getItem('vg_allow_lovelace') === '1';
+    sessionStorage.getItem('atglance_allow_lovelace') === '1';
 
   if (isDefaultLanding && !isBypass) {
-    window.location.replace('/vision-glass');
+    window.location.replace('/atglance');
   }
 
   // Allow navigation to /lovelace if explicitly clicked in sidebar
@@ -33,7 +33,7 @@
         (el) => el && el.tagName === 'A' && el.getAttribute && el.getAttribute('href')?.startsWith('/lovelace')
       );
       if (link) {
-        sessionStorage.setItem('vg_allow_lovelace', '1');
+        sessionStorage.setItem('atglance_allow_lovelace', '1');
       }
     },
     { capture: true, passive: true }

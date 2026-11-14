@@ -1,5 +1,5 @@
 /**
- * Lazy-loaded chart & statistics helpers backed by Python Recorder downsampling (`vision_glass/stats/history`).
+ * Lazy-loaded chart & statistics helpers backed by Python Recorder downsampling (`atglance/stats/history`).
  */
 
 export async function fetchHistoryViaBackend(hass, entityIds, hours = 24, maxPoints = 120) {
@@ -8,14 +8,14 @@ export async function fetchHistoryViaBackend(hass, entityIds, hours = 24, maxPoi
 
   try {
     const res = await hass.callWS({
-      type: 'vision_glass/stats/history',
+      type: 'atglance/stats/history',
       entity_ids: cleanIds,
       hours,
       max_points: maxPoints,
     });
     return (res && res.series) || {};
   } catch (err) {
-    console.warn('[VisionGlass] Stats history fetch error:', err);
+    console.warn('[AtGlance] Stats history fetch error:', err);
     return {};
   }
 }

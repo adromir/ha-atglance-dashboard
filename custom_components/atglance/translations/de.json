@@ -2,24 +2,24 @@
   "config": {
     "step": {
       "user": {
-        "title": "Vision Glass Smart Home Panel einrichten",
-        "description": "Konfiguriere das Vision Glass Smart Home Panel und übernimm auf Wunsch deine bestehende Lovelace-Konfiguration.",
+        "title": "AtGlance Dashboard einrichten",
+        "description": "Konfiguriere das AtGlance Dashboard und übernimm auf Wunsch deine bestehende Konfiguration.",
         "data": {
           "sidebar_title": "Titel in der Seitenleiste",
           "sidebar_icon": "Icon in der Seitenleiste",
           "require_admin": "Nur für Administratoren sichtbar",
-          "migrate_lovelace": "Bestehende 'vision-glass' Lovelace-Konfiguration automatisch migrieren"
+          "migrate_lovelace": "Bestehende Dashboard-Konfiguration automatisch migrieren"
         }
       }
     },
     "abort": {
-      "single_instance_allowed": "Vision Glass ist bereits eingerichtet."
+      "single_instance_allowed": "AtGlance ist bereits eingerichtet."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Vision Glass Smart Home Panel Optionen",
+        "title": "AtGlance Dashboard Optionen",
         "description": "Passe Sichtbarkeit und Darstellung in der Seitenleiste an.",
         "data": {
           "sidebar_title": "Titel in der Seitenleiste",

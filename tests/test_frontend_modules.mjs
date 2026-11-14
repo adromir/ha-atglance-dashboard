@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const frontendDir = path.resolve(__dirname, '../custom_components/vision_glass/frontend');
+const frontendDir = path.resolve(__dirname, '../custom_components/atglance/frontend');
 
 const reg = new Map();
 globalThis.HTMLElement = class {};
@@ -16,10 +16,11 @@ const { I18N } = await import(`file://${path.join(frontendDir, 'i18n.js')}`);
 const { ICONS, renderIcon } = await import(`file://${path.join(frontendDir, 'icons.js')}`);
 const { settingsMethods } = await import(`file://${path.join(frontendDir, 'settings-view.js')}`);
 const statsCharts = await import(`file://${path.join(frontendDir, 'stats-charts.js')}`);
-await import(`file://${path.join(frontendDir, 'vision-glass-panel.js')}`);
+await import(`file://${path.join(frontendDir, 'atglance-panel.js')}`);
 
-const Panel = reg.get('vision-glass-panel');
-assert.ok(Panel, 'vision-glass-panel custom element must register cleanly');
+const Panel = reg.get('atglance-panel');
+assert.ok(Panel, 'atglance-panel custom element must register cleanly');
+assert.ok(reg.get('vision-glass-panel'), 'vision-glass-panel alias must also register cleanly');
 
 // 1. I18N DE <-> EN parity
 const deKeys = new Set(Object.keys(I18N.de || {}));
@@ -51,7 +52,7 @@ const domMethods = new Set([
   'removeAttribute',
   'addEventListener',
 ]);
-for (const file of ['settings-view.js', 'modals.js', 'tactile-controls.js', 'vision-glass-panel.js']) {
+for (const file of ['settings-view.js', 'modals.js', 'tactile-controls.js', 'atglance-panel.js']) {
   const src = fs.readFileSync(path.join(frontendDir, file), 'utf8');
   for (const m of src.matchAll(/\bthis\.([a-zA-Z0-9_]+)\s*\(/g)) {
     const methodName = m[1];

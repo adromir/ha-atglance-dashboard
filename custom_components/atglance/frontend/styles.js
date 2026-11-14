@@ -1,5 +1,5 @@
-/** Shared Glassmorphism CSS styles for Vision Glass panel. */
-export const VISION_GLASS_STYLES = `
+/** Shared Glassmorphism CSS styles for AtGlance panel. */
+export const ATGLANCE_STYLES = `
         :host {
           display: block;
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -2559,3 +2559,5 @@ export const VISION_GLASS_STYLES = `
     display: inline-flex;
   }
 `;
+
+export const VISION_GLASS_STYLES = ATGLANCE_STYLES;

@@ -1,10 +1,10 @@
 import { I18N } from './i18n.js';
-import { VISION_GLASS_STYLES } from './styles.js';
+import { ATGLANCE_STYLES, VISION_GLASS_STYLES } from './styles.js';
 import { ICONS, renderIcon, getWeatherIcon, resolveEntityIcon, getBuiltinDockIcon } from './icons.js';
 import { tactileMethods } from './tactile-controls.js';
 import { modalMethods } from './modals.js';
 
-class VisionGlassPanel extends HTMLElement {
+class AtGlancePanel extends HTMLElement {
   static get I18N() {
     return I18N;
   }
@@ -97,7 +97,7 @@ class VisionGlassPanel extends HTMLElement {
     if (!this._hass || !this._hass.callWS) return;
     this._configLoading = true;
     try {
-      const res = await this._hass.callWS({ type: 'vision_glass/config/get' });
+      const res = await this._hass.callWS({ type: 'atglance/config/get' });
       this._config = (res && res.config) ? res.config : { rooms: [], dock: { auto_detect: true, items: [] } };
       this._summary = (res && res.summary) ? res.summary : null;
       this._configLoaded = true;
@@ -108,7 +108,7 @@ class VisionGlassPanel extends HTMLElement {
       }
       this._ensureDiscovery();
     } catch (err) {
-      console.error('[VisionGlass] Failed to load backend configuration:', err);
+      console.error('[AtGlance] Failed to load backend configuration:', err);
     } finally {
       this._configLoading = false;
     }
@@ -119,13 +119,13 @@ class VisionGlassPanel extends HTMLElement {
     if (this._discoveryPromise) return this._discoveryPromise;
     if (!this._hass || !this._hass.callWS) return null;
 
-    this._discoveryPromise = this._hass.callWS({ type: 'vision_glass/discovery/rooms' })
+    this._discoveryPromise = this._hass.callWS({ type: 'atglance/discovery/rooms' })
       .then((res) => {
         this._discovery = res;
         return res;
       })
       .catch((err) => {
-        console.warn('[VisionGlass] Area discovery warning:', err);
+        console.warn('[AtGlance] Area discovery warning:', err);
         return null;
       });
     return this._discoveryPromise;
@@ -139,7 +139,7 @@ class VisionGlassPanel extends HTMLElement {
   async _loadSettingsModule() {
     if (this._settingsModLoaded) return;
     const mod = await import(`./settings-view.js${this._moduleSuffix()}`);
-    Object.assign(VisionGlassPanel.prototype, mod.settingsMethods);
+    Object.assign(AtGlancePanel.prototype, mod.settingsMethods);
     this._settingsModLoaded = true;
   }
 
@@ -246,7 +246,7 @@ class VisionGlassPanel extends HTMLElement {
       delete payload.mode;
       delete payload.view;
       if (this._hass && this._hass.callWS) {
-        const res = await this._hass.callWS({ type: 'vision_glass/config/save', config: payload });
+        const res = await this._hass.callWS({ type: 'atglance/config/save', config: payload });
         this._config = res?.config || payload;
         if (res?.summary) this._summary = res.summary;
       } else {
@@ -262,7 +262,7 @@ class VisionGlassPanel extends HTMLElement {
       this._render();
       this._applyThemeClass();
     } catch (err) {
-      console.error('[VisionGlass] Save failed:', err);
+      console.error('[AtGlance] Save failed:', err);
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
@@ -274,7 +274,7 @@ class VisionGlassPanel extends HTMLElement {
   async _syncAreas() {
     if (!this._hass || !this._hass.callWS) return { updatedCount: 0, discoveredCount: 0, total: 0 };
     try {
-      const res = await this._hass.callWS({ type: 'vision_glass/discovery/sync' });
+      const res = await this._hass.callWS({ type: 'atglance/discovery/sync' });
       if (res && res.config) {
         this._config = res.config;
         this._discovery = null;
@@ -288,7 +288,7 @@ class VisionGlassPanel extends HTMLElement {
         total: res?.total || (this._config?.rooms?.length || 0)
       };
     } catch (err) {
-      console.error('[VisionGlass] Area sync failed:', err);
+      console.error('[AtGlance] Area sync failed:', err);
       return { updatedCount: 0, discoveredCount: 0, total: 0 };
     }
   }
@@ -296,15 +296,15 @@ class VisionGlassPanel extends HTMLElement {
   connectedCallback() {
     this._startClock();
     try {
-      localStorage.setItem('defaultPanel', JSON.stringify('vision-glass'));
+      localStorage.setItem('defaultPanel', JSON.stringify('atglance'));
     } catch (_) {}
     if (this._hass && this._hass.connection && !this._unsubConfigEvents) {
       this._hass.connection.subscribeEvents(
         () => {
-          console.debug('[VisionGlass] Real-time area update event received. Refreshing backend config...');
+          console.debug('[AtGlance] Real-time area update event received. Refreshing backend config...');
           this._loadBackendConfig();
         },
-        'vision_glass_config_updated'
+        'atglance_config_updated'
       ).then((unsub) => {
         this._unsubConfigEvents = unsub;
       }).catch(() => {});
@@ -1787,10 +1787,10 @@ class VisionGlassPanel extends HTMLElement {
   _render() {
     if (!this._configLoaded) {
       this.shadowRoot.innerHTML = `
-        <style>${VISION_GLASS_STYLES}</style>
+        <style>${ATGLANCE_STYLES}</style>
         <div class="dashboard-root theme-dark" style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
           <div style="padding:20px 28px;border-radius:18px;background:var(--bg-card);border:1px solid var(--border-glass);color:var(--text-primary);font-weight:600;">
-            Vision Glass lädt...
+            AtGlance lädt...
           </div>
         </div>
       `;
@@ -1806,7 +1806,7 @@ class VisionGlassPanel extends HTMLElement {
     const rootClass = `dashboard-root ${isLight ? 'theme-light' : 'theme-dark'} bg-${bgStyle} anim-${animSpeed}`;
 
     this.shadowRoot.innerHTML = `
-      <style>${VISION_GLASS_STYLES}</style>
+      <style>${ATGLANCE_STYLES}</style>
 
       ${isSettings ? `
         <div class="${rootClass}" style="min-height:100vh;padding:28px 32px 80px 32px;box-sizing:border-box;">
@@ -2319,8 +2319,11 @@ class VisionGlassPanel extends HTMLElement {
 
 }
 
-Object.assign(VisionGlassPanel.prototype, tactileMethods, modalMethods);
+Object.assign(AtGlancePanel.prototype, tactileMethods, modalMethods);
 
+if (!customElements.get('atglance-panel')) {
+  customElements.define('atglance-panel', AtGlancePanel);
+}
 if (!customElements.get('vision-glass-panel')) {
-  customElements.define('vision-glass-panel', VisionGlassPanel);
+  customElements.define('vision-glass-panel', AtGlancePanel);
 }

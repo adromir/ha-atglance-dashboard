@@ -1,4 +1,4 @@
-"""Persistent configuration storage and Lovelace migration for Vision Glass."""
+"""Persistent configuration storage and migration for AtGlance Dashboard."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ _THEME_NAME_TO_MODE = {
 
 
 def _extract_card_from_lovelace_config(raw: Any) -> tuple[dict[str, Any] | None, str | None]:
-    """Extract the primary Vision Glass card config and dashboard theme from Lovelace data."""
+    """Extract the primary dashboard card config and theme from Lovelace data."""
     if not isinstance(raw, dict):
         return None, None
 
@@ -51,32 +51,32 @@ def _extract_card_from_lovelace_config(raw: Any) -> tuple[dict[str, Any] | None,
         for card in cards:
             if not isinstance(card, dict):
                 continue
-            if card.get("type") == "custom:vision-glass-dashboard" and card.get("mode") != "settings":
+            card_type = card.get("type", "")
+            if card_type in ("custom:atglance-dashboard", "custom:vision-glass-dashboard") and card.get("mode") != "settings":
                 return copy.deepcopy(card), theme_name
 
     return None, theme_name
 
 
 async def async_has_legacy_lovelace(hass: HomeAssistant) -> bool:
-    """Return True if an existing 'vision-glass' Lovelace dashboard config can be migrated."""
+    """Return True if an existing Lovelace dashboard or storage config can be migrated."""
+    for key in LEGACY_STORAGE_KEYS:
+        legacy_store: Store[dict[str, Any]] = Store(hass, 1, key)
+        raw = await legacy_store.async_load()
+        if raw is not None:
+            return True
+
     lovelace_data = hass.data.get("lovelace")
     if lovelace_data is not None:
         dashboards = getattr(lovelace_data, "dashboards", None)
         if isinstance(dashboards, dict) and LEGACY_LOVELACE_DASHBOARD in dashboards:
             return True
 
-    for key in LEGACY_STORAGE_KEYS:
-        legacy_store: Store[dict[str, Any]] = Store(hass, 1, key)
-        raw = await legacy_store.async_load()
-        card, _ = _extract_card_from_lovelace_config(raw)
-        if card is not None:
-            return True
-
     return False
 
 
-class VisionGlassStore:
-    """Manage Vision Glass dashboard configuration in Home Assistant .storage."""
+class AtGlanceStore:
+    """Manage AtGlance dashboard configuration in Home Assistant .storage."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
@@ -106,8 +106,23 @@ class VisionGlassStore:
         return merged
 
     async def async_load(self) -> dict[str, Any]:
-        """Load configuration from .storage."""
+        """Load configuration from .storage with automatic migration from vision_glass.config."""
         loaded = await self._store.async_load()
+        if not loaded or not loaded.get("_initialized"):
+            # Check for legacy vision_glass.config
+            legacy_vg_store: Store[dict[str, Any]] = Store(self.hass, 1, "vision_glass.config")
+            legacy_loaded = await legacy_vg_store.async_load()
+            if isinstance(legacy_loaded, dict) and (legacy_loaded.get("_initialized") or legacy_loaded.get("rooms")):
+                _LOGGER.info(
+                    "Seamlessly migrating existing 'vision_glass.config' (%d rooms) to AtGlance storage",
+                    len(legacy_loaded.get("rooms", [])),
+                )
+                self.data = self._normalize(legacy_loaded)
+                self.data["_initialized"] = True
+                self.data["_migrated_from_vision_glass"] = True
+                await self._store.async_save(self.data)
+                return self.data
+
         self.data = self._normalize(loaded)
         return self.data
 
@@ -119,7 +134,7 @@ class VisionGlassStore:
         return self.data
 
     async def async_migrate_from_lovelace(self) -> bool:
-        """Migrate legacy 'vision-glass' Lovelace dashboard config once if store is empty."""
+        """Migrate legacy Lovelace dashboard config once if store is empty."""
         if self.data.get("_initialized") or self.data.get("rooms"):
             return False
 
@@ -158,7 +173,11 @@ class VisionGlassStore:
         card["_migrated_from_lovelace"] = True
         await self.async_save(card)
         _LOGGER.info(
-            "Migrated existing 'vision-glass' Lovelace configuration (%d rooms) to integration storage",
+            "Migrated existing Lovelace configuration (%d rooms) to AtGlance storage",
             len(self.data.get("rooms", [])),
         )
         return True
+
+
+# Backward compatibility alias
+VisionGlassStore = AtGlanceStore

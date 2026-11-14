@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up AtGlance Dashboard",
+        "description": "Configure the AtGlance Dashboard and optionally migrate your existing dashboard configuration.",
+        "data": {
+          "sidebar_title": "Sidebar Title",
+          "sidebar_icon": "Sidebar Icon",
+          "require_admin": "Admin Access Only",
+          "migrate_lovelace": "Migrate existing dashboard configuration"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "AtGlance is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AtGlance Dashboard Options",
+        "description": "Adjust sidebar visibility and appearance for AtGlance Dashboard.",
+        "data": {
+          "sidebar_title": "Sidebar Title",
+          "sidebar_icon": "Sidebar Icon",
+          "require_admin": "Admin Access Only"
+        }
+      }
+    }
+  }
+}

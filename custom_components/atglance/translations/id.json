@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Siapkan Dasbor AtGlance",
+        "description": "Konfigurasikan Dasbor AtGlance dan secara opsional migrasikan konfigurasi dasbor yang ada.",
+        "data": {
+          "sidebar_title": "Judul Bilah Sisi",
+          "sidebar_icon": "Ikon Bilah Sisi",
+          "require_admin": "Hanya Akses Admin",
+          "migrate_lovelace": "Migrasikan konfigurasi dasbor yang sudah ada"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "AtGlance sudah dikonfigurasi."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opsi Dasbor AtGlance",
+        "description": "Sesuaikan visibilitas dan tampilan bilah sisi untuk Dasbor AtGlance.",
+        "data": {
+          "sidebar_title": "Judul Bilah Sisi",
+          "sidebar_icon": "Ikon Bilah Sisi",
+          "require_admin": "Hanya Akses Admin"
+        }
+      }
+    }
+  }
+}

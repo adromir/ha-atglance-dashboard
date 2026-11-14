@@ -1,4 +1,4 @@
-"""Config flow for Vision Glass integration."""
+"""Config flow for AtGlance Dashboard integration."""
 
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ from .const import (
 from .storage import async_has_legacy_lovelace
 
 
-class VisionGlassConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle the UI setup flow for Vision Glass."""
+class AtGlanceConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle the UI setup flow for AtGlance Dashboard."""
 
     VERSION = 1
 
@@ -58,10 +58,10 @@ class VisionGlassConfigFlow(ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Return options flow handler for updating sidebar settings."""
-        return VisionGlassOptionsFlow()
+        return AtGlanceOptionsFlow()
 
 
-class VisionGlassOptionsFlow(OptionsFlow):
+class AtGlanceOptionsFlow(OptionsFlow):
     """Manage panel options after installation."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:

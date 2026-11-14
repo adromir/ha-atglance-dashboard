@@ -1,14 +1,14 @@
-"""Constants for the Vision Glass integration."""
+"""Constants for the AtGlance Dashboard integration."""
 
 from __future__ import annotations
 
-DOMAIN = "vision_glass"
-VERSION = "3.0.16"
+DOMAIN = "atglance"
+VERSION = "1.0.0"
 
-PANEL_URL = "vision-glass"
-STATIC_URL = "/vision_glass_static"
+PANEL_URL = "atglance"
+STATIC_URL = "/atglance_static"
 
-STORAGE_KEY = "vision_glass.config"
+STORAGE_KEY = "atglance.config"
 STORAGE_VERSION = 1
 
 CONF_SIDEBAR_TITLE = "sidebar_title"
@@ -17,12 +17,12 @@ CONF_REQUIRE_ADMIN = "require_admin"
 CONF_MIGRATE_LOVELACE = "migrate_lovelace"
 CONF_DEFAULT_DASHBOARD = "default_dashboard"
 
-DEFAULT_SIDEBAR_TITLE = "Vision Glass"
-DEFAULT_SIDEBAR_ICON = "mdi:blur"
+DEFAULT_SIDEBAR_TITLE = "AtGlance"
+DEFAULT_SIDEBAR_ICON = "mdi:view-dashboard-outline"
 DEFAULT_SET_DEFAULT_DASHBOARD = True
 
 LEGACY_LOVELACE_DASHBOARD = "vision-glass"
-LEGACY_STORAGE_KEYS = ("lovelace.vision_glass", "lovelace.vision-glass")
+LEGACY_STORAGE_KEYS = ("vision_glass.config", "lovelace.vision_glass", "lovelace.vision-glass")
 
 DEFAULT_CONFIG: dict = {
     "_initialized": False,

@@ -2623,13 +2623,13 @@ export const settingsMethods = {
     if (btnSetDefault && this._hass) {
       btnSetDefault.onclick = async () => {
         try {
-          await this._hass.callWS({ type: 'frontend/set_user_data', key: 'core', value: { default_panel: 'vision-glass' } });
-          await this._hass.callWS({ type: 'frontend/set_system_data', key: 'core', value: { default_panel: 'vision-glass' } });
+          await this._hass.callWS({ type: 'frontend/set_user_data', key: 'core', value: { default_panel: 'atglance' } });
+          await this._hass.callWS({ type: 'frontend/set_system_data', key: 'core', value: { default_panel: 'atglance' } });
           try {
-            localStorage.setItem('defaultPanel', JSON.stringify('vision-glass'));
+            localStorage.setItem('defaultPanel', JSON.stringify('atglance'));
           } catch (_) {}
           if (lblDefaultStatus) {
-            lblDefaultStatus.textContent = '✓ Gespeichert! Vision Glass öffnet sich nun automatisch beim Start.';
+            lblDefaultStatus.textContent = '✓ Gespeichert! AtGlance öffnet sich nun automatisch beim Start.';
             lblDefaultStatus.style.color = '#10b981';
           }
         } catch (e) {

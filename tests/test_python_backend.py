@@ -147,16 +147,17 @@ def _install_ha_stubs() -> None:
 
 _install_ha_stubs()
 
-from custom_components.vision_glass import async_set_default_dashboard
-from custom_components.vision_glass.aggregator import (  # noqa: E402
+from custom_components.atglance import async_set_default_dashboard
+from custom_components.atglance.aggregator import (  # noqa: E402
     _downsample_numeric_points,
     compute_summary,
 )
-from custom_components.vision_glass.discovery import (  # noqa: E402
+from custom_components.atglance.discovery import (  # noqa: E402
     build_initial_config,
     sync_rooms_with_areas,
 )
-from custom_components.vision_glass.storage import (  # noqa: E402
+from custom_components.atglance.storage import (  # noqa: E402
+    AtGlanceStore,
     VisionGlassStore,
     _extract_card_from_lovelace_config,
 )
@@ -268,6 +269,28 @@ class TestVisionGlassBackend(unittest.TestCase):
 
         asyncio.run(_run())
 
+    def test_store_migrates_from_vision_glass_config(self) -> None:
+        hass = _FakeHass()
+        hass._stores["vision_glass.config"] = {
+            "_initialized": True,
+            "theme_mode": "dark",
+            "dashboard_title": "Mein Zuhause",
+            "rooms": [{"id": "living", "name": "Wohnzimmer"}],
+            "dock": {"items": [{"name": "Licht", "action": "light"}]},
+        }
+
+        async def _run():
+            store = AtGlanceStore(hass)
+            loaded = await store.async_load()
+            self.assertTrue(loaded["_initialized"])
+            self.assertTrue(loaded.get("_migrated_from_vision_glass"))
+            self.assertEqual(loaded["theme_mode"], "dark")
+            self.assertEqual(loaded["dashboard_title"], "Mein Zuhause")
+            self.assertEqual(loaded["rooms"][0]["id"], "living")
+            self.assertEqual(hass._stores["atglance.config"]["dashboard_title"], "Mein Zuhause")
+
+        asyncio.run(_run())
+
     def test_discovery_and_sync_no_hardcoded_entities(self) -> None:
         hass = _FakeHass(
             states=[
@@ -339,9 +362,9 @@ class TestVisionGlassBackend(unittest.TestCase):
             sys_store = hass._stores.get("frontend.system_data")
             user_store = hass._stores.get("frontend.user_data_u123")
             self.assertIsNotNone(sys_store)
-            self.assertEqual(sys_store["core"]["default_panel"], "vision-glass")
+            self.assertEqual(sys_store["core"]["default_panel"], "atglance")
             self.assertIsNotNone(user_store)
-            self.assertEqual(user_store["core"]["default_panel"], "vision-glass")
+            self.assertEqual(user_store["core"]["default_panel"], "atglance")
 
             # Disable
             await async_set_default_dashboard(hass, False)

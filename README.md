@@ -1,41 +1,41 @@
-# 🪟 Vision Glass for Home Assistant
+# 👁️ AtGlance Dashboard for Home Assistant
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=adromir&repository=ha-vision-glass-dashboard&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=adromir&repository=ha-atglance-dashboard&category=integration)
 [![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/adromir)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/default)
-[![GitHub Release](https://img.shields.io/github/v/release/adromir/ha-vision-glass-dashboard?style=for-the-badge&color=blue)](https://github.com/adromir/ha-vision-glass-dashboard/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/adromir/ha-atglance-dashboard?style=for-the-badge&color=blue)](https://github.com/adromir/ha-atglance-dashboard/releases)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.7%2B-18BCF2?style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=for-the-badge)](https://github.com/adromir/ha-vision-glass-dashboard)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=for-the-badge)](https://github.com/adromir/ha-atglance-dashboard)
 
-An all-in-one **Home Assistant Integration & Spatial Glassmorphism Custom Panel** inspired by Apple VisionOS and macOS Sequoia design languages.
+An all-in-one **Home Assistant Integration & Spatial Smart Home Operating Panel** designed to give you complete home awareness and tactile control at a single glance.
 
-Starting with **v3.0.0**, Vision Glass installs cleanly as a single **HACS Integration** (`custom_components/vision_glass`) combining a Python backend (`.storage` persistence, native area/device/entity discovery, summary aggregation, and Recorder downsampling) with a modular zero-dependency ES frontend served as a dedicated sidebar Custom Panel (`/vision-glass`).
+Starting with **v1.0.0**, AtGlance Dashboard installs cleanly as a single **HACS Integration** (`custom_components/atglance`) combining an asynchronous Python backend (`.storage` persistence, native area/device/entity discovery, summary aggregation, and Recorder downsampling) with a modular zero-dependency ES frontend served as a dedicated sidebar Custom Panel (`/atglance`).
 
 ---
 
 ## 🌟 The Full Experience Suite
 
-For the ultimate spatial glassmorphism experience across your entire Home Assistant setup, combine Vision Glass Panel with the companion theme and automatic theme switcher:
+For the ultimate spatial experience across your entire Home Assistant setup, combine AtGlance Dashboard with the companion theme and automatic theme switcher:
 
 | Component | Type | Description | Quick Install & Repository |
 | :--- | :--- | :--- | :--- |
-| [**Vision Glass Panel**](https://github.com/adromir/ha-vision-glass-dashboard) | Integration | Spatial Glassmorphism panel, Bento cards, tactile controls, popups, and recorder stats | [![Install Panel](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=adromir&repository=ha-vision-glass-dashboard&category=integration)<br>[🔗 GitHub Repository](https://github.com/adromir/ha-vision-glass-dashboard) |
+| [**AtGlance Dashboard**](https://github.com/adromir/ha-atglance-dashboard) | Integration | Spatial Smart Home panel, Bento cards, tactile controls, popups, and recorder stats | [![Install Panel](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=adromir&repository=ha-atglance-dashboard&category=integration)<br>[🔗 GitHub Repository](https://github.com/adromir/ha-atglance-dashboard) |
 | [**Vision Glass Theme**](https://github.com/adromir/ha-vision-glass-theme) | Theme | Universal Home Assistant theme covering the sidebar, header bar, dialogs, and data tables with frosted glass | [![Install Theme](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=adromir&repository=ha-vision-glass-theme&category=theme)<br>[🔗 GitHub Repository](https://github.com/adromir/ha-vision-glass-theme) |
 | [**Theme Switch Engine**](https://github.com/adromir/ha-theme-switch-engine) | Companion | Seamless, automatic light/dark switching synced to daylight (`sun.sun`) or schedules | [![Install Theme Switcher](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=adromir&repository=ha-theme-switch-engine&category=integration)<br>[🔗 GitHub Repository](https://github.com/adromir/ha-theme-switch-engine) |
 
 ---
 
-## ✨ Why Use Vision Glass?
+## ✨ Why Use AtGlance Dashboard?
 
-- 🚀 **Single All-in-One Integration**: No manual Lovelace resources or separate dashboard YAML files required—install once via HACS, add the integration in Home Assistant, and open **Vision Glass** straight from your sidebar.
-- 🎯 **Turnkey Default Dashboard & Instant Landing**: Automatically sets Vision Glass as Home Assistant's default landing page (`default_panel: vision-glass`) across system data, user profiles, and browsers so opening Home Assistant always launches Vision Glass directly.
+- 🚀 **Single All-in-One Integration**: No manual Lovelace resources or separate dashboard YAML files required—install once via HACS, add the integration in Home Assistant, and open **AtGlance** straight from your sidebar.
+- 🎯 **Turnkey Default Dashboard & Instant Landing**: Automatically sets AtGlance as Home Assistant's default landing page (`default_panel: atglance`) across system data, user profiles, and browsers so opening Home Assistant always launches AtGlance directly.
 - 🔄 **Continuous Automatic Area Synchronization**: Native event listeners on Home Assistant's area registry immediately update renamed areas, sync pictures and icons, auto-populate unconfigured entities, and automatically discover newly added rooms without manual intervention.
 - 🧠 **Python-Offloaded Performance**:
-  - **Exact Area/Device Registry Discovery**: Resolves area-to-entity mappings server-side (`vision_glass/discovery/rooms`) instead of brute-forcing entity lists in the browser.
-  - **Server-Side Aggregation & Recorder Downsampling**: Computes active lights, heating counts, battery tiers, and downsampled SVG chart series (`vision_glass/stats/history`) in Python before sending compact payloads over WebSocket.
-  - **Dedicated Storage (`vision_glass.config`)**: Persists your layout cleanly in `.storage/vision_glass.config` with zero dependency on Lovelace view/card editors.
-- 🔄 **Seamless One-Time Lovelace Migration**: Upgrading from v2.x? Setup automatically detects an existing `vision-glass` Lovelace dashboard config and offers a 1-click migration into integration storage.
+  - **Exact Area/Device Registry Discovery**: Resolves area-to-entity mappings server-side (`atglance/discovery/rooms`) instead of brute-forcing entity lists in the browser.
+  - **Server-Side Aggregation & Recorder Downsampling**: Computes active lights, heating counts, battery tiers, and downsampled SVG chart series (`atglance/stats/history`) in Python before sending compact payloads over WebSocket.
+  - **Dedicated Storage (`atglance.config`)**: Persists your layout cleanly in `.storage/atglance.config` with zero dependency on Lovelace view/card editors.
+- 🔄 **Seamless Automatic Migration**: Upgrading from Vision Glass? Setup automatically detects an existing `.storage/vision_glass.config` and migrates all room orders, custom badges, and dock preferences into `atglance.config`.
 - 📦 **Modular ES Frontend & Lazy Loading**: Splits panel core, styles, icons, i18n (`de` / `en` / `id`), tactile controls, modals, settings view, and stats charts with content-hash cache busting (`?v=<build_id>`).
 
 ---
@@ -60,30 +60,30 @@ For the ultimate spatial glassmorphism experience across your entire Home Assist
 
 ## 📦 Installation via HACS
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=adromir&repository=ha-vision-glass-dashboard&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=adromir&repository=ha-atglance-dashboard&category=integration)
 
 1. Make sure [HACS](https://hacs.xyz/) is installed.
 2. Open **HACS → Integrations → ⋮ → Custom repositories**.
 3. Add repository URL:
    ```text
-   https://github.com/adromir/ha-vision-glass-dashboard
+   https://github.com/adromir/ha-atglance-dashboard
    ```
 4. Choose category: **Integration** and click **Add**.
-5. Search for **Vision Glass** in HACS, click **Download**, and **restart Home Assistant**.
-6. Go to **Settings → Devices & Services → Add Integration → Vision Glass**.
-   - Configure sidebar title, icon, admin restriction, and (if present) enable **Migrate existing `vision-glass` Lovelace configuration**.
+5. Search for **AtGlance Dashboard** in HACS, click **Download**, and **restart Home Assistant**.
+6. Go to **Settings → Devices & Services → Add Integration → AtGlance Dashboard**.
+   - Configure sidebar title, icon, admin restriction, and confirm setup.
 
 ---
 
 ## 🚀 Usage & Configuration
 
-1. Open **Vision Glass** from the Home Assistant sidebar (`/vision-glass`) or navigate to your Home Assistant root URL (`/`) which automatically routes to Vision Glass.
+1. Open **AtGlance** from the Home Assistant sidebar (`/atglance`) or navigate to your Home Assistant root URL (`/`) which automatically routes to AtGlance.
 2. Click **⚙️ Settings** in the top-right header bar or bottom dock to customize:
    - **Rooms & Bento Content** (order, primary entities, inline room sensor badges, custom action icons)
    - **Room Overlays & Helper Controls**
    - **Top Header Chips & Bottom Dock Items**
    - **Theme Mode, Background Presets & Default Landing Page Settings**
-3. Changes save directly to Home Assistant `.storage/vision_glass.config` over WebSocket (`vision_glass/config/save`).
+3. Changes save directly to Home Assistant `.storage/atglance.config` over WebSocket (`atglance/config/save`).
 
 ---
 
