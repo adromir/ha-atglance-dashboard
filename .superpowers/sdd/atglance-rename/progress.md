@@ -9,3 +9,7 @@ Task 2: complete (local directory renamed to ha-atglance-dashboard, hacs.json, r
 Task 3: complete (custom_components/atglance refactored, const.py, manifest.json, storage.py migration, __init__.py WebSocket commands, config_flow, translations, and backend unit tests all pass)
 
 Task 4: complete (Frontend renamed to atglance-panel.js, customElements defined, styles & stats-charts updated, default-panel-sync updated to /atglance, frontend unit tests passed)
+
+Task 5: complete (Legacy Vision Glass tags/releases cleared, tag v1.0.0 created & pushed, GitHub release v1.0.0 published)
+
+Task 6: complete (Vision Glass config entry & HACS entry removed, AtGlance Dashboard v1.0.0 installed in HACS, HA restart triggered)
