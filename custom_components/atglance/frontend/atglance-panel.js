@@ -947,21 +947,28 @@ class AtGlancePanel extends HTMLElement {
     if (customChipsContainer) {
       const customChips = this._config?.top_bar_custom_chips || [];
       customChipsContainer.innerHTML = customChips.map((c, cIdx) => {
-        const s = this._hass.states[c.entity_id];
-        if (!s) return '';
-        const name = c.name || s.attributes?.friendly_name || c.entity_id;
-        const val = s.state + (s.attributes?.unit_of_measurement ? ' ' + s.attributes.unit_of_measurement : '');
+        if (c.enabled === false) return '';
+        const s = c.entity_id ? this._hass?.states[c.entity_id] : null;
+        const name = c.name || c.title || s?.attributes?.friendly_name || c.entity_id || 'Badge';
+        const val = s ? (s.state + (s.attributes?.unit_of_measurement ? ' ' + s.attributes.unit_of_measurement : '')) : '';
+        const iconName = c.icon || 'mdi:tag-outline';
         return `
-          <div class="chip chip-custom" data-entity-id="${c.entity_id}" title="${name}">
-            <span style="display:inline-flex;align-items:center;">${this._icon(c.icon || 'star', { size: 14, style: 'margin-right:4px;' })}</span>
-            <span>${name}: <strong>${val}</strong></span>
+          <div class="chip chip-custom" data-chip-idx="${cIdx}" title="${name}">
+            <span style="display:inline-flex;align-items:center;">${this._icon(iconName, { size: 14, style: 'margin-right:4px;' })}</span>
+            <span>${name}${val ? `: <strong>${val}</strong>` : ''}</span>
           </div>
         `;
       }).join('');
-      customChipsContainer.querySelectorAll('.chip-custom[data-entity-id]').forEach(chip => {
+      customChipsContainer.querySelectorAll('.chip-custom[data-chip-idx]').forEach(chip => {
         chip.onclick = () => {
-          const eId = chip.getAttribute('data-entity-id');
-          this._fireMoreInfo(eId);
+          const cIdx = parseInt(chip.getAttribute('data-chip-idx'));
+          const c = customChips[cIdx];
+          if (!c) return;
+          if (c.open_modal === true || (Array.isArray(c.modal_entities) && c.modal_entities.length > 0)) {
+            this._openModal('custom_badge', c);
+          } else if (c.entity_id) {
+            this._fireMoreInfo(c.entity_id);
+          }
         };
       });
     }
@@ -973,13 +980,27 @@ class AtGlancePanel extends HTMLElement {
         chipLights.style.display = 'none';
       } else {
         chipLights.style.display = 'inline-flex';
-        let activeLightsCount = 0;
-        this._config.rooms.forEach(r => {
-          if (r.id === 'wohnung' || r.light_entity === 'light.licht_wohnung' || r.light_entity === this._config.all_lights_entity) return;
-          if (r.light_entity && this._hass.states[r.light_entity] && this._hass.states[r.light_entity].state === 'on') {
-            activeLightsCount++;
+        const activeLightEntities = new Set();
+        (this._config.rooms || []).forEach(r => {
+          if (r.id === 'wohnung') return;
+          const roomLights = [];
+          if (r.light_entity && r.light_entity !== 'light.licht_wohnung' && r.light_entity !== this._config.all_lights_entity) {
+            roomLights.push(r.light_entity.trim());
           }
+          if (Array.isArray(r.lights)) {
+            r.lights.forEach(lId => {
+              if (lId && lId !== 'light.licht_wohnung' && lId !== this._config.all_lights_entity) {
+                roomLights.push(lId.trim());
+              }
+            });
+          }
+          roomLights.forEach(lId => {
+            if (this._hass?.states[lId]?.state === 'on') {
+              activeLightEntities.add(lId);
+            }
+          });
         });
+        const activeLightsCount = activeLightEntities.size;
         if (activeLightsCount > 0) {
           const lightText = activeLightsCount === 1 ? this._t('light_on_single') : this._t('lights_on_multi');
           chipLights.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('light', { size: 14, cls: 'icon-light', style: 'margin-right:4px;' })} ${activeLightsCount} ${lightText}`;
@@ -1119,6 +1140,12 @@ class AtGlancePanel extends HTMLElement {
       }
     }
 
+    // Stats Chip
+    const chipStatsNav = this.shadowRoot.getElementById('chipStatsNav');
+    if (chipStatsNav) {
+      chipStatsNav.style.display = this._config.top_bar_show_stats === false ? 'none' : 'inline-flex';
+    }
+
     // 4. Update Room Cards
     this._config.rooms.forEach((room, idx) => {
       this._updateRoomCard(room, idx);
@@ -1168,7 +1195,10 @@ class AtGlancePanel extends HTMLElement {
           ...existing,
           icon: existing.icon || def.icon,
           title: existing.title || def.title,
-          entity_id: (existing.entity_id !== undefined && existing.entity_id !== null) ? existing.entity_id : def.entity_id
+          entity_id: (existing.entity_id !== undefined && existing.entity_id !== null) ? existing.entity_id : def.entity_id,
+          open_modal: existing.open_modal === true,
+          modal_entities: Array.isArray(existing.modal_entities) ? existing.modal_entities : [],
+          modal_title: existing.modal_title || ''
         });
       } else {
         result.push({ ...def });
@@ -1525,25 +1555,46 @@ class AtGlancePanel extends HTMLElement {
     // 5. Quick Target Temp Stepper
     const targetValEl = card.querySelector(`#targetTemp_${idx}`);
     const stepperEl = card.querySelector('.quick-climate-stepper');
-    if (targetValEl && room.climate_entity && this._hass.states[room.climate_entity]) {
-      const cObj = this._hass.states[room.climate_entity];
-      let targetTemp = cObj.attributes.temperature != null ? parseFloat(cObj.attributes.temperature) : 21.0;
-      const isHeating = cObj.attributes.hvac_action === 'heating' || cObj.attributes.call_for_heat === true || (cObj.attributes.heating_power && cObj.attributes.heating_power > 0.05);
-      const isWindowOpen = cObj.attributes.window_open === true || (room.window_entity && this._hass.states[room.window_entity]?.state === 'on');
+    if (targetValEl) {
+      let targetTemp = null;
+      let isHeating = false;
+      const targetMode = room.temp_control_target || 'auto';
 
-      if (isWindowOpen) {
-        targetValEl.innerHTML = `${targetTemp.toFixed(1)}° <span title="Fenster offen (Heizpause)" style="display:inline-flex;align-items:center;vertical-align:middle;"><ha-icon icon="mdi:window-open-variant" style="--mdc-icon-size:12px;color:#ef4444;"></ha-icon></span>`;
+      if (targetMode === 'helper' && room.target_temp_entity && this._hass?.states[room.target_temp_entity]) {
+        const val = parseFloat(this._hass.states[room.target_temp_entity].state);
+        if (!isNaN(val)) targetTemp = val;
+      } else if (targetMode === 'climate' && room.climate_entity && this._hass?.states[room.climate_entity]) {
+        const cObj = this._hass.states[room.climate_entity];
+        if (cObj.attributes?.temperature != null) targetTemp = parseFloat(cObj.attributes.temperature);
+        isHeating = cObj.attributes?.hvac_action === 'heating' || cObj.attributes?.call_for_heat === true || (cObj.attributes?.heating_power && cObj.attributes.heating_power > 0.05);
       } else {
-        targetValEl.textContent = `${targetTemp.toFixed(1)}°`;
+        // Auto: Prefer climate, fallback to helper
+        if (room.climate_entity && this._hass?.states[room.climate_entity]) {
+          const cObj = this._hass.states[room.climate_entity];
+          if (cObj.attributes?.temperature != null) targetTemp = parseFloat(cObj.attributes.temperature);
+          isHeating = cObj.attributes?.hvac_action === 'heating' || cObj.attributes?.call_for_heat === true || (cObj.attributes?.heating_power && cObj.attributes.heating_power > 0.05);
+        } else if (room.target_temp_entity && this._hass?.states[room.target_temp_entity]) {
+          const val = parseFloat(this._hass.states[room.target_temp_entity].state);
+          if (!isNaN(val)) targetTemp = val;
+        }
       }
 
-      if (stepperEl) {
-        if (isHeating) {
-          stepperEl.style.boxShadow = '0 0 14px rgba(245,158,11,0.35)';
-          stepperEl.style.borderColor = 'rgba(245,158,11,0.6)';
+      if (targetTemp != null) {
+        const isWindowOpen = room.window_entity && this._hass.states[room.window_entity]?.state === 'on';
+        if (isWindowOpen) {
+          targetValEl.innerHTML = `${targetTemp.toFixed(1)}° <span title="Fenster offen (Heizpause)" style="display:inline-flex;align-items:center;vertical-align:middle;"><ha-icon icon="mdi:window-open-variant" style="--mdc-icon-size:12px;color:#ef4444;"></ha-icon></span>`;
         } else {
-          stepperEl.style.boxShadow = '';
-          stepperEl.style.borderColor = '';
+          targetValEl.textContent = `${targetTemp.toFixed(1)}°`;
+        }
+
+        if (stepperEl) {
+          if (isHeating) {
+            stepperEl.style.boxShadow = '0 0 14px rgba(245,158,11,0.35)';
+            stepperEl.style.borderColor = 'rgba(245,158,11,0.6)';
+          } else {
+            stepperEl.style.boxShadow = '';
+            stepperEl.style.borderColor = '';
+          }
         }
       }
     }
@@ -1829,6 +1880,50 @@ class AtGlancePanel extends HTMLElement {
     }
     room.overlay_categories = defaultCats;
     return defaultCats;
+  }
+
+  _isEntityInRoom(eId, roomId, roomName) {
+    if (!eId) return false;
+    if (!roomId && !roomName) return true;
+    const rId = (roomId || '').toLowerCase();
+    const rName = (roomName || '').toLowerCase();
+    const eLower = eId.toLowerCase();
+
+    // 0. Python backend registry mapping
+    if (this._discovery?.entities?.[eId]?.area_id) {
+      if (this._discovery.entities[eId].area_id.toLowerCase() === rId) return true;
+    }
+    // 1. HA entity registry area
+    if (this._hass?.entities?.[eId]?.area_id) {
+      if (this._hass.entities[eId].area_id.toLowerCase() === rId) return true;
+    }
+    // 2. HA device registry area
+    const devId = this._hass?.entities?.[eId]?.device_id;
+    if (devId && this._hass?.devices?.[devId]?.area_id) {
+      if (this._hass.devices[devId].area_id.toLowerCase() === rId) return true;
+    }
+    // 3. String match in entity_id or friendly_name
+    const stateObj = this._hass?.states?.[eId];
+    const fname = (stateObj?.attributes?.friendly_name || '').toLowerCase();
+    if (rId && eLower.includes(rId)) return true;
+    if (rName && (eLower.includes(rName) || fname.includes(rName))) return true;
+
+    // 4. Room synonyms / aliases
+    const aliases = {
+      'wohnzimmer': ['livingroom', 'living_room', 'living', 'wohnen'],
+      'arbeitszimmer': ['studyroom', 'study_room', 'office', 'büro', 'buro', 'arbeiten'],
+      'schlafzimmer': ['bedroom', 'bed_room', 'schlafen'],
+      'badezimmer': ['bathroom', 'bath_room', 'bad'],
+      'kuche': ['kueche', 'kitchen', 'küche', 'kochen'],
+      'flur': ['hallway', 'corridor', 'entrance', 'diele', 'gang']
+    };
+    for (const [key, list] of Object.entries(aliases)) {
+      if (rId.includes(key) || list.some(a => rId.includes(a)) || rName.includes(key)) {
+        const tokens = [key, ...list];
+        if (tokens.some(tok => eLower.includes(tok) || fname.includes(tok))) return true;
+      }
+    }
+    return false;
   }
 
   _ensureRoomLights(room) {
@@ -2158,51 +2253,55 @@ class AtGlancePanel extends HTMLElement {
                       ${(() => {
                         const acts = this._getRoomBentoActions(room);
                         const out = [];
-                        acts.forEach(a => {
+                        acts.forEach((a, aIdx) => {
                           if (a.enabled === false) return;
                           const title = a.title || '';
 
                           if (a.type === 'light') {
                             const ent = (a.entity_id && a.entity_id.trim()) ? a.entity_id.trim() : (room.light_entity && room.light_entity.trim());
-                            if (ent) {
-                              const s = this._hass && this._hass.states[ent];
+                            const hasCustomModal = a.open_modal === true || (Array.isArray(a.modal_entities) && a.modal_entities.length > 0);
+                            if (ent || hasCustomModal) {
+                              const s = ent && this._hass && this._hass.states[ent];
                               const isOn = s && s.state === 'on';
                               const inheritedIcon = s?.attributes?.icon;
                               const iconName = (a.icon && a.icon.trim()) ? a.icon.trim() : (inheritedIcon || 'mdi:lightbulb');
-                              out.push(`<div class="action-circle action-light ${isOn ? 'active active-amber' : ''}" title="${title || this._t('toggle_light')}" data-action="light" data-entity="${ent}" data-idx="${idx}">${this._icon(iconName, { size: 16, cls: 'icon-light' })}</div>`);
+                              out.push(`<div class="action-circle action-light ${isOn ? 'active active-amber' : ''}" title="${title || this._t('toggle_light')}" data-action="light" data-entity="${ent || ''}" data-idx="${idx}" data-act-idx="${aIdx}">${this._icon(iconName, { size: 16, cls: 'icon-light' })}</div>`);
                             }
                           } else if (a.type === 'climate') {
                             const ent = (a.entity_id && a.entity_id.trim()) ? a.entity_id.trim() : (room.climate_entity && room.climate_entity.trim());
-                            if (ent) {
-                              const s = this._hass && this._hass.states[ent];
+                            const hasCustomModal = a.open_modal === true || (Array.isArray(a.modal_entities) && a.modal_entities.length > 0);
+                            if (ent || hasCustomModal) {
+                              const s = ent && this._hass && this._hass.states[ent];
                               const isHeating = s && (s.state === 'heat' || s.attributes?.hvac_action === 'heating' || s.attributes?.call_for_heat === true || (s.attributes?.heating_power && s.attributes.heating_power > 0.05));
                               const inheritedIcon = s?.attributes?.icon;
                               const iconName = (a.icon && a.icon.trim()) ? a.icon.trim() : (inheritedIcon || 'mdi:thermometer');
-                              out.push(`<div class="action-circle action-climate ${isHeating ? 'active-heat' : 'cool-idle'}" title="${title || this._t('open_climate')}" data-action="climate" data-entity="${ent}" data-idx="${idx}">${this._icon(iconName, { size: 16, cls: 'icon-climate' })}</div>`);
+                              out.push(`<div class="action-circle action-climate ${isHeating ? 'active-heat' : 'cool-idle'}" title="${title || this._t('open_climate')}" data-action="climate" data-entity="${ent || ''}" data-idx="${idx}" data-act-idx="${aIdx}">${this._icon(iconName, { size: 16, cls: 'icon-climate' })}</div>`);
                             }
                           } else if (a.type === 'media') {
                             const ent = (a.entity_id && a.entity_id.trim()) ? a.entity_id.trim() : ((room.media_entity && room.media_entity.trim()) || (room.audio_entity && room.audio_entity.trim()) || (room.video_entity && room.video_entity.trim()));
-                            if (ent) {
-                              const s = this._hass && this._hass.states[ent];
+                            const hasCustomModal = a.open_modal === true || (Array.isArray(a.modal_entities) && a.modal_entities.length > 0);
+                            if (ent || hasCustomModal) {
+                              const s = ent && this._hass && this._hass.states[ent];
                               const isOn = s && (s.state === 'playing' || s.state === 'on');
                               const inheritedIcon = s?.attributes?.icon;
                               const iconName = (a.icon && a.icon.trim()) ? a.icon.trim() : (inheritedIcon || 'mdi:music');
-                              out.push(`<div class="action-circle action-media ${isOn ? 'active' : ''}" title="${title || this._t('toggle_media')}" data-action="media" data-entity="${ent}" data-idx="${idx}">${this._icon(iconName, { size: 16, cls: 'icon-media' })}</div>`);
+                              out.push(`<div class="action-circle action-media ${isOn ? 'active' : ''}" title="${title || this._t('toggle_media')}" data-action="media" data-entity="${ent || ''}" data-idx="${idx}" data-act-idx="${aIdx}">${this._icon(iconName, { size: 16, cls: 'icon-media' })}</div>`);
                             }
                           } else if (a.type === 'lock') {
                             const ent = (a.entity_id && a.entity_id.trim()) ? a.entity_id.trim() : (room.lock_entity && room.lock_entity.trim());
-                            if (ent) {
-                              const s = this._hass && this._hass.states[ent];
+                            const hasCustomModal = a.open_modal === true || (Array.isArray(a.modal_entities) && a.modal_entities.length > 0);
+                            if (ent || hasCustomModal) {
+                              const s = ent && this._hass && this._hass.states[ent];
                               const isLocked = s && s.state === 'locked';
                               const inheritedIcon = s?.attributes?.icon;
                               const iconName = (a.icon && a.icon.trim()) ? a.icon.trim() : (inheritedIcon || (isLocked ? 'mdi:lock' : 'mdi:lock-open-variant'));
-                              out.push(`<div class="action-circle action-lock ${isLocked ? 'active-green' : 'active-amber'}" title="${title || this._t('toggle_lock')}" data-action="lock" data-entity="${ent}" data-idx="${idx}">${this._icon(iconName, { size: 16, cls: 'icon-security' })}</div>`);
+                              out.push(`<div class="action-circle action-lock ${isLocked ? 'active-green' : 'active-amber'}" title="${title || this._t('toggle_lock')}" data-action="lock" data-entity="${ent || ''}" data-idx="${idx}" data-act-idx="${aIdx}">${this._icon(iconName, { size: 16, cls: 'icon-security' })}</div>`);
                             }
                           } else if (a.type === 'devices_helpers') {
-                            out.push(`<div class="action-circle action-devices-helpers" title="${title || (this._t('devices_and_helpers') || 'Geräte & Helfer')}" data-action="devices_helpers" data-idx="${idx}">${this._icon(a.icon || 'mdi:tune-vertical', { size: 16 })}</div>`);
-                          } else if (a.type === 'custom' && a.entity_id) {
-                            const ent = a.entity_id.trim();
-                            const s = this._hass && this._hass.states[ent];
+                            out.push(`<div class="action-circle action-devices-helpers" title="${title || (this._t('devices_and_helpers') || 'Geräte & Helfer')}" data-action="devices_helpers" data-idx="${idx}" data-act-idx="${aIdx}">${this._icon(a.icon || 'mdi:tune-vertical', { size: 16 })}</div>`);
+                          } else if (a.type === 'custom' && (a.entity_id || a.open_modal || (Array.isArray(a.modal_entities) && a.modal_entities.length > 0))) {
+                            const ent = (a.entity_id && a.entity_id.trim()) || '';
+                            const s = ent && this._hass && this._hass.states[ent];
                             const isOn = s && (s.state === 'on' || s.state === 'open' || s.state === 'active' || s.state === 'playing' || s.state === 'heat' || s.state === 'cool' || s.state === 'unlocked');
                             let iconName = (a.icon && a.icon.trim()) ? a.icon.trim() : '';
                             if (!iconName) {
@@ -2222,20 +2321,39 @@ class AtGlancePanel extends HTMLElement {
                                 iconName = 'mdi:star';
                               }
                             }
-                            out.push(`<div class="action-circle action-custom ${isOn ? 'active' : ''}" title="${title || s?.attributes?.friendly_name || ent}" data-action="custom" data-entity="${ent}" data-idx="${idx}">${this._icon(iconName, { size: 16 })}</div>`);
+                            out.push(`<div class="action-circle action-custom ${isOn ? 'active' : ''}" title="${title || s?.attributes?.friendly_name || ent || 'Aktion'}" data-action="custom" data-entity="${ent}" data-idx="${idx}" data-act-idx="${aIdx}">${this._icon(iconName, { size: 16 })}</div>`);
                           }
                         });
                         return out.join('');
                       })()}
                     </div>
 
-                    ${(room.show_temp_control !== false && (room.climate_entity || room.target_temp_entity)) ? `
-                      <div class="quick-climate-stepper" title="${this._t('adjust_temp')}">
-                        <button class="quick-step-btn" data-action="temp-minus" data-idx="${idx}" title="${this._t('temp_down')}" style="display:flex;align-items:center;justify-content:center;">${this._icon('minus', { size: 11 })}</button>
-                        <span class="quick-step-val" id="targetTemp_${idx}">--°</span>
-                        <button class="quick-step-btn" data-action="temp-plus" data-idx="${idx}" title="${this._t('temp_up')}" style="display:flex;align-items:center;justify-content:center;">${this._icon('plus', { size: 11 })}</button>
-                      </div>
-                    ` : ''}
+                    ${(() => {
+                      if (room.show_temp_control === false) return '';
+                      const targetMode = room.temp_control_target || 'auto';
+                      let initVal = '--';
+                      if (targetMode === 'helper' && room.target_temp_entity && this._hass?.states[room.target_temp_entity]) {
+                        const num = parseFloat(this._hass.states[room.target_temp_entity].state);
+                        if (!isNaN(num)) initVal = `${num.toFixed(1)}°`;
+                      } else if (targetMode === 'climate' && room.climate_entity && this._hass?.states[room.climate_entity]) {
+                        const cObj = this._hass.states[room.climate_entity];
+                        if (cObj.attributes?.temperature != null) initVal = `${parseFloat(cObj.attributes.temperature).toFixed(1)}°`;
+                      } else if (room.climate_entity && this._hass?.states[room.climate_entity]?.attributes?.temperature != null) {
+                        initVal = `${parseFloat(this._hass.states[room.climate_entity].attributes.temperature).toFixed(1)}°`;
+                      } else if (room.target_temp_entity && this._hass?.states[room.target_temp_entity]) {
+                        const num = parseFloat(this._hass.states[room.target_temp_entity].state);
+                        if (!isNaN(num)) initVal = `${num.toFixed(1)}°`;
+                      } else if (!room.climate_entity && !room.target_temp_entity) {
+                        return '';
+                      }
+                      return `
+                        <div class="quick-climate-stepper" title="${this._t('adjust_temp')}">
+                          <button class="quick-step-btn" data-action="temp-minus" data-idx="${idx}" title="${this._t('temp_down')}" style="display:flex;align-items:center;justify-content:center;">${this._icon('minus', { size: 11 })}</button>
+                          <span class="quick-step-val" id="targetTemp_${idx}">${initVal}</span>
+                          <button class="quick-step-btn" data-action="temp-plus" data-idx="${idx}" title="${this._t('temp_up')}" style="display:flex;align-items:center;justify-content:center;">${this._icon('plus', { size: 11 })}</button>
+                        </div>
+                      `;
+                    })()}
                   </div>
                 </div>
               `;
@@ -2436,6 +2554,17 @@ class AtGlancePanel extends HTMLElement {
         const room = this._config.rooms[idx];
         if (!room) return;
 
+        // Check if this action has an individual modal configured
+        const acts = this._getRoomBentoActions(room);
+        const actionType = action;
+        const actIdx = btn.getAttribute('data-act-idx');
+        const actConfig = (actIdx != null && acts[parseInt(actIdx)]) ? acts[parseInt(actIdx)] : acts.find(a => (actionType === 'custom' ? a.entity_id === btn.getAttribute('data-entity') : a.type === actionType));
+
+        if (actConfig && (actConfig.open_modal === true || (Array.isArray(actConfig.modal_entities) && actConfig.modal_entities.length > 0))) {
+          this._openCustomActionModal(actConfig, room);
+          return;
+        }
+
         if (action === 'light') {
           const lEnt = btn.getAttribute('data-entity') || room.light_entity;
           if (lEnt) this._callService('light', 'toggle', { entity_id: lEnt });
@@ -2466,48 +2595,78 @@ class AtGlancePanel extends HTMLElement {
             }
           }
         } else if (action === 'temp-plus') {
-          const cEntity = room.climate_entity;
-          if (cEntity && this._hass && this._hass.states[cEntity]) {
-            const cObj = this._hass.states[cEntity];
-            let curTarget = (cObj.attributes && cObj.attributes.temperature != null)
-              ? parseFloat(cObj.attributes.temperature)
-              : 21.0;
-            const newTarget = Math.min(28.0, Math.round((curTarget + 0.5) * 10) / 10);
-            this._callService('climate', 'set_temperature', { entity_id: cEntity, temperature: newTarget });
-            if (room.target_temp_entity && this._hass.states[room.target_temp_entity]) {
-              this._callService('input_number', 'set_value', { entity_id: room.target_temp_entity, value: newTarget });
-            }
-            const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
-            if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
-          } else if (room.target_temp_entity && this._hass && this._hass.states[room.target_temp_entity]) {
+          const targetMode = room.temp_control_target || 'auto';
+          if (targetMode === 'helper' && room.target_temp_entity && this._hass?.states[room.target_temp_entity]) {
             const tObj = this._hass.states[room.target_temp_entity];
             let curTarget = parseFloat(tObj.state) || 21.0;
             const newTarget = Math.min(28.0, Math.round((curTarget + 0.5) * 10) / 10);
             this._callService('input_number', 'set_value', { entity_id: room.target_temp_entity, value: newTarget });
             const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
             if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
+          } else if (targetMode === 'climate' && room.climate_entity && this._hass?.states[room.climate_entity]) {
+            const cObj = this._hass.states[room.climate_entity];
+            let curTarget = (cObj.attributes && cObj.attributes.temperature != null) ? parseFloat(cObj.attributes.temperature) : 21.0;
+            const newTarget = Math.min(28.0, Math.round((curTarget + 0.5) * 10) / 10);
+            this._callService('climate', 'set_temperature', { entity_id: room.climate_entity, temperature: newTarget });
+            const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
+            if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
+          } else {
+            // Auto: prefer climate, update helper as well if present
+            if (room.climate_entity && this._hass?.states[room.climate_entity]) {
+              const cObj = this._hass.states[room.climate_entity];
+              let curTarget = (cObj.attributes && cObj.attributes.temperature != null) ? parseFloat(cObj.attributes.temperature) : 21.0;
+              const newTarget = Math.min(28.0, Math.round((curTarget + 0.5) * 10) / 10);
+              this._callService('climate', 'set_temperature', { entity_id: room.climate_entity, temperature: newTarget });
+              if (room.target_temp_entity && this._hass.states[room.target_temp_entity]) {
+                this._callService('input_number', 'set_value', { entity_id: room.target_temp_entity, value: newTarget });
+              }
+              const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
+              if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
+            } else if (room.target_temp_entity && this._hass?.states[room.target_temp_entity]) {
+              const tObj = this._hass.states[room.target_temp_entity];
+              let curTarget = parseFloat(tObj.state) || 21.0;
+              const newTarget = Math.min(28.0, Math.round((curTarget + 0.5) * 10) / 10);
+              this._callService('input_number', 'set_value', { entity_id: room.target_temp_entity, value: newTarget });
+              const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
+              if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
+            }
           }
         } else if (action === 'temp-minus') {
-          const cEntity = room.climate_entity;
-          if (cEntity && this._hass && this._hass.states[cEntity]) {
-            const cObj = this._hass.states[cEntity];
-            let curTarget = (cObj.attributes && cObj.attributes.temperature != null)
-              ? parseFloat(cObj.attributes.temperature)
-              : 21.0;
-            const newTarget = Math.max(14.0, Math.round((curTarget - 0.5) * 10) / 10);
-            this._callService('climate', 'set_temperature', { entity_id: cEntity, temperature: newTarget });
-            if (room.target_temp_entity && this._hass.states[room.target_temp_entity]) {
-              this._callService('input_number', 'set_value', { entity_id: room.target_temp_entity, value: newTarget });
-            }
-            const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
-            if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
-          } else if (room.target_temp_entity && this._hass && this._hass.states[room.target_temp_entity]) {
+          const targetMode = room.temp_control_target || 'auto';
+          if (targetMode === 'helper' && room.target_temp_entity && this._hass?.states[room.target_temp_entity]) {
             const tObj = this._hass.states[room.target_temp_entity];
             let curTarget = parseFloat(tObj.state) || 21.0;
             const newTarget = Math.max(14.0, Math.round((curTarget - 0.5) * 10) / 10);
             this._callService('input_number', 'set_value', { entity_id: room.target_temp_entity, value: newTarget });
             const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
             if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
+          } else if (targetMode === 'climate' && room.climate_entity && this._hass?.states[room.climate_entity]) {
+            const cObj = this._hass.states[room.climate_entity];
+            let curTarget = (cObj.attributes && cObj.attributes.temperature != null) ? parseFloat(cObj.attributes.temperature) : 21.0;
+            const newTarget = Math.max(14.0, Math.round((curTarget - 0.5) * 10) / 10);
+            this._callService('climate', 'set_temperature', { entity_id: room.climate_entity, temperature: newTarget });
+            const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
+            if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
+          } else {
+            // Auto
+            if (room.climate_entity && this._hass?.states[room.climate_entity]) {
+              const cObj = this._hass.states[room.climate_entity];
+              let curTarget = (cObj.attributes && cObj.attributes.temperature != null) ? parseFloat(cObj.attributes.temperature) : 21.0;
+              const newTarget = Math.max(14.0, Math.round((curTarget - 0.5) * 10) / 10);
+              this._callService('climate', 'set_temperature', { entity_id: room.climate_entity, temperature: newTarget });
+              if (room.target_temp_entity && this._hass.states[room.target_temp_entity]) {
+                this._callService('input_number', 'set_value', { entity_id: room.target_temp_entity, value: newTarget });
+              }
+              const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
+              if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
+            } else if (room.target_temp_entity && this._hass?.states[room.target_temp_entity]) {
+              const tObj = this._hass.states[room.target_temp_entity];
+              let curTarget = parseFloat(tObj.state) || 21.0;
+              const newTarget = Math.max(14.0, Math.round((curTarget - 0.5) * 10) / 10);
+              this._callService('input_number', 'set_value', { entity_id: room.target_temp_entity, value: newTarget });
+              const valEl = this.shadowRoot.getElementById(`targetTemp_${idx}`);
+              if (valEl) valEl.textContent = `${newTarget.toFixed(1)}°`;
+            }
           }
         }
       });

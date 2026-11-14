@@ -240,6 +240,10 @@ export const tactileMethods = {
       return this._renderClimateControlRow(entityId, stateObj);
     }
 
+    if (domain === 'media_player') {
+      return this._renderMediaPlayerControlRow(entityId, stateObj);
+    }
+
     const prefCtrl = this._config?.helper_controls?.[entityId];
 
     if (domain === 'switch' || domain === 'input_boolean' || domain === 'light' || domain === 'fan' || domain === 'lock') {
@@ -615,8 +619,95 @@ export const tactileMethods = {
     `;
   },
 
+  _renderMediaPlayerControlRow(entityId, stateObj) {
+    if (!stateObj) return '';
+    const name = stateObj.attributes?.friendly_name || entityId;
+    const isPlaying = stateObj.state === 'playing';
+    const isOn = stateObj.state !== 'off' && stateObj.state !== 'unavailable';
+    const mediaTitle = stateObj.attributes?.media_title || '';
+    const mediaArtist = stateObj.attributes?.media_artist || '';
+    const trackInfo = [mediaArtist, mediaTitle].filter(Boolean).join(' • ');
+    const vol = stateObj.attributes?.volume_level != null ? Math.round(stateObj.attributes.volume_level * 100) : 50;
+    const isMuted = stateObj.attributes?.is_volume_muted === true;
+
+    return `
+      <div class="control-row" style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--bg-card);border:1px solid var(--border-glass);border-radius:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;margin-right:8px;">
+            <div style="width:34px;height:34px;border-radius:8px;background:${isPlaying ? 'rgba(168,85,247,0.22)' : 'rgba(255,255,255,0.06)'};display:flex;align-items:center;justify-content:center;color:${isPlaying ? '#a855f7' : 'var(--text-secondary)'};flex-shrink:0;">
+              <ha-icon icon="${stateObj.attributes?.icon || (isPlaying ? 'mdi:play-circle' : 'mdi:speaker')}" style="--mdc-icon-size:20px;"></ha-icon>
+            </div>
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
+              <div style="font-size:11px;color:${isPlaying ? '#a855f7' : 'var(--text-secondary)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${trackInfo ? trackInfo : (this._t(stateObj.state) || stateObj.state)}
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+            <button type="button" class="btn-micro" data-media-action="prev" data-media-entity="${entityId}" title="Vorheriger Titel" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <ha-icon icon="mdi:skip-previous" style="--mdc-icon-size:16px;"></ha-icon>
+            </button>
+            <button type="button" class="btn-micro ${isPlaying ? 'active' : ''}" data-media-action="play_pause" data-media-entity="${entityId}" title="${isPlaying ? 'Pause' : 'Wiedergabe'}" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:${isPlaying ? 'var(--accent)' : 'rgba(255,255,255,0.1)'};color:${isPlaying ? '#fff' : 'var(--text-primary)'};border-radius:50%;cursor:pointer;">
+              <ha-icon icon="${isPlaying ? 'mdi:pause' : 'mdi:play'}" style="--mdc-icon-size:16px;"></ha-icon>
+            </button>
+            <button type="button" class="btn-micro" data-media-action="next" data-media-entity="${entityId}" title="Nächster Titel" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <ha-icon icon="mdi:skip-next" style="--mdc-icon-size:16px;"></ha-icon>
+            </button>
+            <button type="button" class="btn-micro ${isOn ? 'active' : ''}" data-media-action="power" data-media-entity="${entityId}" title="Power" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;color:${isOn ? '#10b981' : 'var(--text-secondary)'};cursor:pointer;">
+              <ha-icon icon="mdi:power" style="--mdc-icon-size:16px;"></ha-icon>
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;width:100%;">
+          <button type="button" class="btn-micro" data-media-action="mute" data-media-entity="${entityId}" title="${isMuted ? 'Stumm aufheben' : 'Stumm schalten'}" style="color:${isMuted ? '#ef4444' : 'var(--text-secondary)'};padding:0;background:none;border:none;cursor:pointer;">
+            <ha-icon icon="${isMuted ? 'mdi:volume-mute' : (vol > 50 ? 'mdi:volume-high' : 'mdi:volume-medium')}" style="--mdc-icon-size:16px;"></ha-icon>
+          </button>
+          <input type="range" class="media-volume-slider" data-media-entity="${entityId}" min="0" max="100" value="${vol}" style="flex:1;accent-color:var(--accent);height:4px;cursor:pointer;">
+          <span class="media-vol-text" style="font-size:11px;font-weight:600;color:var(--text-secondary);min-width:32px;text-align:right;">${vol}%</span>
+        </div>
+      </div>
+    `;
+  },
+
   _bindInteractiveRows(rootEl) {
     if (!rootEl) return;
+
+    // Media Player controls
+    rootEl.querySelectorAll('[data-media-action]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-media-action');
+        const entityId = btn.getAttribute('data-media-entity');
+        if (!entityId) return;
+        if (action === 'play_pause') {
+          this._callService('media_player', 'media_play_pause', { entity_id: entityId });
+        } else if (action === 'prev') {
+          this._callService('media_player', 'media_previous_track', { entity_id: entityId });
+        } else if (action === 'next') {
+          this._callService('media_player', 'media_next_track', { entity_id: entityId });
+        } else if (action === 'power') {
+          this._callService('media_player', 'toggle', { entity_id: entityId });
+        } else if (action === 'mute') {
+          const s = this._hass?.states[entityId];
+          const isMuted = s?.attributes?.is_volume_muted === true;
+          this._callService('media_player', 'volume_mute', { entity_id: entityId, is_volume_muted: !isMuted });
+        }
+      };
+    });
+    rootEl.querySelectorAll('.media-volume-slider[data-media-entity]').forEach(sl => {
+      sl.oninput = (e) => {
+        e.stopPropagation();
+        const valText = sl.parentElement?.querySelector('.media-vol-text');
+        if (valText) valText.textContent = `${sl.value}%`;
+      };
+      sl.onchange = (e) => {
+        e.stopPropagation();
+        const entityId = sl.getAttribute('data-media-entity');
+        this._callService('media_player', 'volume_set', { entity_id: entityId, volume_level: parseFloat(sl.value) / 100 });
+      };
+    });
     rootEl.querySelectorAll('.vg-switch[data-vg-switch]').forEach(sw => {
       sw.onclick = (e) => {
         e.stopPropagation();

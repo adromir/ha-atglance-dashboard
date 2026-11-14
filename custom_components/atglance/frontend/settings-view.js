@@ -675,6 +675,7 @@ export const settingsMethods = {
       <!-- Settings Navigation Tabs -->
       <div class="nav-tabs" style="display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px;">
         <button class="nav-tab ${activeTab === 'rooms' ? 'active' : ''}" data-stab="rooms" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:home-outline" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('rooms_and_cards')} (${rooms.length})</button>
+        <button class="nav-tab ${activeTab === 'topbar' ? 'active' : ''}" data-stab="topbar" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:page-layout-header" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('top_bar_settings') || 'Top-Leiste & Navigation'}</button>
         <button class="nav-tab ${activeTab === 'overlays' ? 'active' : ''}" data-stab="overlays" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:folder-outline" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('controls_categories') || 'Raum-Kategorien & Schalterzentrale'}</button>
         <button class="nav-tab ${activeTab === 'dock' ? 'active' : ''}" data-stab="dock" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:dock-bottom" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('dock_navigation')}</button>
         <button class="nav-tab ${activeTab === 'controls' ? 'active' : ''}" data-stab="controls" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:tune" style="--mdc-icon-size:16px;"></ha-icon> Helfer-Kontrollen</button>
@@ -876,13 +877,27 @@ export const settingsMethods = {
                   </div>
                 </div>
 
-                <!-- Temperature Stepper on Bento Card Toggle -->
-                <div class="row" style="grid-column: 1 / -1; background: var(--bg-surface); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 4px;">
-                  <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;">
-                    <input type="checkbox" class="chk-show-temp-control" data-ridx="${rIdx}" ${r.show_temp_control !== false ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);">
-                    <span>${this._t('show_temp_control') || 'Temperatur-Schnellregler auf Bento-Karte anzeigen'}</span>
-                  </label>
-                  <span style="font-size:11px;color:var(--text-secondary);">${this._t('show_temp_control_hint') || 'Regelt Thermostat oder Zieltemp.-Helfer'}</span>
+                <!-- Temperature Stepper on Bento Card Toggle & Target Selector -->
+                <div class="row" style="grid-column: 1 / -1; background: var(--bg-surface); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;">
+                      <input type="checkbox" class="chk-show-temp-control" data-ridx="${rIdx}" ${r.show_temp_control !== false ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);">
+                      <span>${this._t('show_temp_control') || 'Temperatur-Schnellregler auf Bento-Karte anzeigen'}</span>
+                    </label>
+                    <span style="font-size:11px;color:var(--text-secondary);">${this._t('show_temp_control_hint') || 'Regelt Thermostat oder Zieltemp.-Helfer'}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:4px;border-top:1px solid rgba(255,255,255,0.06);">
+                    <label style="font-size:11px;font-weight:600;color:var(--text-secondary);">${this._t('temp_control_target') || 'Regelt'}:</label>
+                    <select class="sel-room-prop" data-ridx="${rIdx}" data-prop="temp_control_target" style="padding:4px 8px;border-radius:6px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-subtle);font-size:12px;">
+                      <option value="auto" ${(r.temp_control_target === 'auto' || !r.temp_control_target) ? 'selected' : ''}>${this._t('temp_target_auto') || 'Automatisch (Thermostat bevorzugen)'}</option>
+                      <option value="climate" ${r.temp_control_target === 'climate' ? 'selected' : ''}>${this._t('temp_target_climate') || 'Thermostat (climate.*)'}</option>
+                      <option value="helper" ${r.temp_control_target === 'helper' ? 'selected' : ''}>${this._t('temp_target_helper') || 'Zieltemperatur-Helfer (input_number.*)'}</option>
+                    </select>
+                    <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:180px;">
+                      <input type="text" list="dl_all_entities" class="in-room-prop" data-ridx="${rIdx}" data-prop="target_temp_entity" value="${r.target_temp_entity || ''}" placeholder="${this._t('target_temp_helper_entity') || 'Zieltemp.-Helfer (z.B. input_number.kueche_soll)'}" style="flex:1;padding:4px 8px;font-size:11px;font-family:monospace;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);">
+                      <button type="button" class="btn btn-sm btn-pick-entity" data-ridx="${rIdx}" data-prop="target_temp_entity" title="Entität suchen..." style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon></button>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Bento Card Action Icons Configuration -->
@@ -894,8 +909,8 @@ export const settingsMethods = {
                     </button>
                   </div>
 
-                  <!-- Standard Actions (Fully Editable) -->
-                  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+                  <!-- Standard Actions (Fully Editable with Configurable Modal) -->
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
                     ${(() => {
                       const acts = this._getRoomBentoActions(r);
                       const stdDefs = [
@@ -911,25 +926,54 @@ export const settingsMethods = {
                         const curTitle = act.title || st.defaultTitle;
                         const curEntity = (act.entity_id !== undefined && act.entity_id !== null) ? act.entity_id : st.defaultEntity;
                         const safeIcon = (curIcon && curIcon.includes(':')) ? curIcon : (MDI_ICON_MAP[curIcon] || (curIcon ? 'mdi:' + curIcon : st.defaultIcon));
+                        const modalEntities = Array.isArray(act.modal_entities) ? act.modal_entities : [];
                         return `
-                          <div style="display:flex;align-items:center;gap:8px;background:var(--bg-surface);padding:6px 10px;border-radius:8px;border:1px solid var(--border-subtle);flex-wrap:wrap;">
-                            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;min-width:110px;">
-                              <input type="checkbox" class="chk-bento-action" data-ridx="${rIdx}" data-act-type="${st.type}" ${isChecked ? 'checked' : ''} style="cursor:pointer;width:15px;height:15px;accent-color:var(--accent);">
-                              <span>${st.label}</span>
-                            </label>
-                            <div id="stdActIconBox_${rIdx}_${st.type}" style="width:28px;height:28px;border-radius:6px;background:rgba(56,189,248,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
-                              <ha-icon icon="${safeIcon}" style="--mdc-icon-size:16px;"></ha-icon>
-                            </div>
-                            <input type="text" class="in-std-act-title" data-ridx="${rIdx}" data-act-type="${st.type}" value="${curTitle}" placeholder="Titel" style="width:130px;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:12px;">
-                            <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:180px;">
-                              <input type="text" class="in-std-act-entity" data-ridx="${rIdx}" data-act-type="${st.type}" value="${curEntity}" placeholder="${st.type === 'devices_helpers' ? '(Modal / Optional Bereich)' : 'Entität (Standard: ' + (st.defaultEntity || 'keine') + ')'}" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:11px;font-family:monospace;">
-                              <button type="button" class="btn btn-sm btn-pick-std-act-entity" data-ridx="${rIdx}" data-act-type="${st.type}" title="Entität wählen" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;">
-                                <ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon>
+                          <div style="display:flex;flex-direction:column;gap:6px;background:var(--bg-surface);padding:8px 10px;border-radius:8px;border:1px solid var(--border-subtle);">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;min-width:110px;">
+                                <input type="checkbox" class="chk-bento-action" data-ridx="${rIdx}" data-act-type="${st.type}" ${isChecked ? 'checked' : ''} style="cursor:pointer;width:15px;height:15px;accent-color:var(--accent);">
+                                <span>${st.label}</span>
+                              </label>
+                              <div id="stdActIconBox_${rIdx}_${st.type}" style="width:28px;height:28px;border-radius:6px;background:rgba(56,189,248,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+                                <ha-icon icon="${safeIcon}" style="--mdc-icon-size:16px;"></ha-icon>
+                              </div>
+                              <input type="text" class="in-std-act-title" data-ridx="${rIdx}" data-act-type="${st.type}" value="${curTitle}" placeholder="Titel" style="width:130px;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:12px;">
+                              <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:180px;">
+                                <input type="text" class="in-std-act-entity" data-ridx="${rIdx}" data-act-type="${st.type}" value="${curEntity}" placeholder="${st.type === 'devices_helpers' ? '(Modal / Optional Bereich)' : 'Entität (Standard: ' + (st.defaultEntity || 'keine') + ')'}" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:11px;font-family:monospace;">
+                                <button type="button" class="btn btn-sm btn-pick-std-act-entity" data-ridx="${rIdx}" data-act-type="${st.type}" title="Entität wählen" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;">
+                                  <ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon>
+                                </button>
+                              </div>
+                              <button type="button" class="btn btn-sm btn-pick-std-act-icon" data-ridx="${rIdx}" data-act-type="${st.type}" title="Icon wählen" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
+                                <ha-icon icon="mdi:palette-outline" style="--mdc-icon-size:13px;"></ha-icon> Icon
+                              </button>
+                              <button type="button" class="btn btn-sm btn-toggle-act-modal-cfg" data-ridx="${rIdx}" data-act-type="${st.type}" style="padding:4px 8px;font-size:11px;background:${(modalEntities.length > 0 || act.open_modal) ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.06)'};color:${(modalEntities.length > 0 || act.open_modal) ? 'var(--accent)' : 'var(--text-secondary)'};border:1px solid var(--border-subtle);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                <ha-icon icon="mdi:card-bulleted-settings-outline" style="--mdc-icon-size:13px;"></ha-icon> <span>${modalEntities.length ? `Modal (${modalEntities.length})` : 'Modal'}</span>
                               </button>
                             </div>
-                            <button type="button" class="btn btn-sm btn-pick-std-act-icon" data-ridx="${rIdx}" data-act-type="${st.type}" title="Icon wählen" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
-                              <ha-icon icon="mdi:palette-outline" style="--mdc-icon-size:13px;"></ha-icon> Icon
-                            </button>
+                            <div class="act-modal-cfg-box" id="actModalCfg_${rIdx}_${st.type}" style="${act.open_modal || modalEntities.length > 0 ? 'display:flex;' : 'display:none;'}flex-direction:column;gap:6px;width:100%;padding:8px 10px;background:rgba(0,0,0,0.18);border-radius:6px;border:1px dashed var(--border-subtle);">
+                              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                                <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                  <input type="checkbox" class="chk-act-open-modal" data-ridx="${rIdx}" data-act-type="${st.type}" ${act.open_modal ? 'checked' : ''} style="cursor:pointer;accent-color:var(--accent);">
+                                  <span>${this._t('open_action_modal') || 'Eigenes Modal beim Klick öffnen'}</span>
+                                </label>
+                                <button type="button" class="btn btn-sm btn-add-act-modal-entity" data-ridx="${rIdx}" data-act-type="${st.type}" style="padding:2px 8px;font-size:11px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                  <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;"></ha-icon> ${this._t('add_entity_to_modal') || 'Entität hinzufügen'}
+                                </button>
+                              </div>
+                              <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                ${modalEntities.length === 0 ? `
+                                  <span style="font-size:11px;color:var(--text-secondary);font-style:italic;">Keine Entitäten zugewiesen (nutzt Standardfunktion)</span>
+                                ` : modalEntities.map((mEnt, mIdx) => `
+                                  <span class="chip" style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);display:inline-flex;align-items:center;gap:4px;">
+                                    <span style="font-family:monospace;">${mEnt}</span>
+                                    <button type="button" class="btn-micro btn-del-act-modal-entity" data-ridx="${rIdx}" data-act-type="${st.type}" data-eidx="${mIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+                                      <ha-icon icon="mdi:close" style="--mdc-icon-size:12px;"></ha-icon>
+                                    </button>
+                                  </span>
+                                `).join('')}
+                              </div>
+                            </div>
                           </div>
                         `;
                       }).join('');
@@ -942,27 +986,56 @@ export const settingsMethods = {
                     const customActs = acts.filter(a => a.type === 'custom');
                     if (customActs.length === 0) return '';
                     return `
-                      <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+                      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                         ${customActs.map((ca, caIdx) => {
                           const safeIcon = (ca.icon && ca.icon.includes(':')) ? ca.icon : (MDI_ICON_MAP[ca.icon] || (ca.icon ? 'mdi:' + ca.icon : 'mdi:star'));
+                          const modalEntities = Array.isArray(ca.modal_entities) ? ca.modal_entities : [];
                           return `
-                            <div style="display:flex;align-items:center;gap:8px;background:var(--bg-surface);padding:6px 10px;border-radius:8px;border:1px solid var(--border-subtle);flex-wrap:wrap;">
-                              <div id="roomActIconBox_${rIdx}_${caIdx}" style="width:28px;height:28px;border-radius:6px;background:rgba(56,189,248,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
-                                <ha-icon icon="${safeIcon}" style="--mdc-icon-size:16px;"></ha-icon>
-                              </div>
-                              <input type="text" class="in-custom-act-title" data-ridx="${rIdx}" data-caidx="${caIdx}" value="${ca.title || ''}" placeholder="Titel (z.B. Ventilator)" style="width:130px;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:12px;">
-                              <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:180px;">
-                                <input type="text" class="in-custom-act-entity" data-ridx="${rIdx}" data-caidx="${caIdx}" value="${ca.entity_id || ''}" placeholder="switch.xyz oder script.xyz" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:11px;font-family:monospace;">
-                                <button type="button" class="btn btn-sm btn-pick-custom-act-entity" data-ridx="${rIdx}" data-caidx="${caIdx}" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;">
-                                  <ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon>
+                            <div style="display:flex;flex-direction:column;gap:6px;background:var(--bg-surface);padding:8px 10px;border-radius:8px;border:1px solid var(--border-subtle);">
+                              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <div id="roomActIconBox_${rIdx}_${caIdx}" style="width:28px;height:28px;border-radius:6px;background:rgba(56,189,248,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+                                  <ha-icon icon="${safeIcon}" style="--mdc-icon-size:16px;"></ha-icon>
+                                </div>
+                                <input type="text" class="in-custom-act-title" data-ridx="${rIdx}" data-caidx="${caIdx}" value="${ca.title || ''}" placeholder="Titel (z.B. Ventilator)" style="width:130px;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:12px;">
+                                <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:180px;">
+                                  <input type="text" class="in-custom-act-entity" data-ridx="${rIdx}" data-caidx="${caIdx}" value="${ca.entity_id || ''}" placeholder="switch.xyz oder script.xyz" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:11px;font-family:monospace;">
+                                  <button type="button" class="btn btn-sm btn-pick-custom-act-entity" data-ridx="${rIdx}" data-caidx="${caIdx}" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;">
+                                    <ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon>
+                                  </button>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-pick-custom-act-icon" data-ridx="${rIdx}" data-caidx="${caIdx}" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
+                                  <ha-icon icon="mdi:palette-outline" style="--mdc-icon-size:13px;"></ha-icon> Icon
+                                </button>
+                                <button type="button" class="btn btn-sm btn-toggle-act-modal-cfg" data-ridx="${rIdx}" data-caidx="${caIdx}" style="padding:4px 8px;font-size:11px;background:${(modalEntities.length > 0 || ca.open_modal) ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.06)'};color:${(modalEntities.length > 0 || ca.open_modal) ? 'var(--accent)' : 'var(--text-secondary)'};border:1px solid var(--border-subtle);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                  <ha-icon icon="mdi:card-bulleted-settings-outline" style="--mdc-icon-size:13px;"></ha-icon> <span>${modalEntities.length ? `Modal (${modalEntities.length})` : 'Modal'}</span>
+                                </button>
+                                <button type="button" class="btn-micro btn-del-custom-act" data-ridx="${rIdx}" data-caidx="${caIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:2px 6px;" title="Icon löschen">
+                                  <ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon>
                                 </button>
                               </div>
-                              <button type="button" class="btn btn-sm btn-pick-custom-act-icon" data-ridx="${rIdx}" data-caidx="${caIdx}" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
-                                <ha-icon icon="mdi:palette-outline" style="--mdc-icon-size:13px;"></ha-icon> Icon
-                              </button>
-                              <button type="button" class="btn-micro btn-del-custom-act" data-ridx="${rIdx}" data-caidx="${caIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:2px 6px;">
-                                <ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon>
-                              </button>
+                              <div class="act-modal-cfg-box" id="actModalCfg_${rIdx}_ca_${caIdx}" style="${ca.open_modal || modalEntities.length > 0 ? 'display:flex;' : 'display:none;'}flex-direction:column;gap:6px;width:100%;padding:8px 10px;background:rgba(0,0,0,0.18);border-radius:6px;border:1px dashed var(--border-subtle);">
+                                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                                  <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                    <input type="checkbox" class="chk-act-open-modal" data-ridx="${rIdx}" data-caidx="${caIdx}" ${ca.open_modal ? 'checked' : ''} style="cursor:pointer;accent-color:var(--accent);">
+                                    <span>${this._t('open_action_modal') || 'Eigenes Modal beim Klick öffnen'}</span>
+                                  </label>
+                                  <button type="button" class="btn btn-sm btn-add-act-modal-entity" data-ridx="${rIdx}" data-caidx="${caIdx}" style="padding:2px 8px;font-size:11px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                    <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;"></ha-icon> ${this._t('add_entity_to_modal') || 'Entität hinzufügen'}
+                                  </button>
+                                </div>
+                                <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                  ${modalEntities.length === 0 ? `
+                                    <span style="font-size:11px;color:var(--text-secondary);font-style:italic;">Keine Entitäten zugewiesen</span>
+                                  ` : modalEntities.map((mEnt, mIdx) => `
+                                    <span class="chip" style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);display:inline-flex;align-items:center;gap:4px;">
+                                      <span style="font-family:monospace;">${mEnt}</span>
+                                      <button type="button" class="btn-micro btn-del-act-modal-entity" data-ridx="${rIdx}" data-caidx="${caIdx}" data-eidx="${mIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+                                        <ha-icon icon="mdi:close" style="--mdc-icon-size:12px;"></ha-icon>
+                                      </button>
+                                    </span>
+                                  `).join('')}
+                                </div>
+                              </div>
                             </div>
                           `;
                         }).join('')}
@@ -1020,13 +1093,156 @@ export const settingsMethods = {
         </div>
       </div>
 
+      <!-- TAB: TOP-LEISTE & HEADER NAVIGATION -->
+      <div id="stabContentTopbar" style="${activeTab === 'topbar' ? '' : 'display:none;'}">
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
+          Konfiguriere hier die Sichtbarkeit der integrierten Badges in der oberen Menüleiste sowie eigene Badges mit individuellen Modals.
+        </div>
+
+        <!-- Section 1: Integrierte Badges -->
+        <div class="card-box" style="margin-bottom:16px;">
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+            <ha-icon icon="mdi:view-dashboard-outline" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
+            <span>${this._t('top_bar_builtin_badges') || 'Integrierte Badges (Standard)'}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+            ${[
+              { key: 'top_bar_show_weather', label: this._t('weather') || 'Wetter', icon: 'mdi:weather-partly-cloudy' },
+              { key: 'top_bar_show_warnings', label: this._t('warnings_center_title') || 'Warnzentrale', icon: 'mdi:alert-circle' },
+              { key: 'top_bar_show_media', label: this._t('multimedia') || 'Medienwiedergabe', icon: 'mdi:music' },
+              { key: 'top_bar_show_alarmo', label: this._t('alarmo') || 'Alarmanlage', icon: 'mdi:shield' },
+              { key: 'top_bar_show_persons', label: this._t('presence') || 'Personen & Anwesenheit', icon: 'mdi:account-group' },
+              { key: 'top_bar_show_lights', label: this._t('lighting') || 'Beleuchtung', icon: 'mdi:lightbulb' },
+              { key: 'top_bar_show_climate', label: this._t('climate') || 'Heizung & Klima', icon: 'mdi:thermometer' },
+              { key: 'top_bar_show_lock', label: this._t('security') || 'Schloss & Türen', icon: 'mdi:lock' },
+              { key: 'top_bar_show_stats', label: this._t('stats') || 'Statistiken', icon: 'mdi:chart-bar' }
+            ].map(b => `
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;cursor:pointer;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <ha-icon icon="${b.icon}" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
+                  <span style="font-weight:600;font-size:13px;">${b.label}</span>
+                </div>
+                <input type="checkbox" class="chk-top-bar-badge" data-key="${b.key}" ${this._config[b.key] !== false ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);">
+              </label>
+            `).join('')}
+          </div>
+
+          <div style="border-top:1px solid var(--border-subtle);padding-top:14px;margin-top:14px;">
+            <div style="font-weight:600;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+              <ha-icon icon="mdi:account-multiple-outline" style="--mdc-icon-size:16px;color:var(--accent);"></ha-icon>
+              <span>${this._t('presence') || 'Personen-Auswahl'} (Angezeigte Personen in Top-Bar)</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;" id="topPersonsSelection">
+              ${(() => {
+                const allPersons = this._hass ? Object.keys(this._hass.states).filter(e => e.startsWith('person.')) : [];
+                const confPersons = this._config.top_bar_persons || [];
+                return allPersons.map(pId => {
+                  const s = this._hass.states[pId];
+                  const name = s?.attributes?.friendly_name || pId.replace('person.', '');
+                  const isChecked = confPersons.length === 0 || confPersons.includes(pId);
+                  return `
+                    <label style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;">
+                      <input type="checkbox" class="chk-person-select" data-person-id="${pId}" ${isChecked ? 'checked' : ''} style="cursor:pointer;accent-color:var(--accent);">
+                      <span>${name}</span>
+                      <code style="font-size:10px;color:var(--text-secondary);">${pId}</code>
+                    </label>
+                  `;
+                }).join('') || '<span style="font-size:12px;color:var(--text-secondary);">Keine Personen im System gefunden.</span>';
+              })()}
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Eigene Badges -->
+        <div class="card-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+              <ha-icon icon="mdi:tag-multiple-outline" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
+              <span>${this._t('top_bar_custom_badges') || 'Eigene Top-Bar Badges'} (${(this._config.top_bar_custom_chips || []).length})</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" id="btnAddTopBarCustomChip" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;cursor:pointer;">
+              <ha-icon icon="mdi:plus" style="--mdc-icon-size:14px;"></ha-icon> ${this._t('add_top_bar_badge') || 'Eigenes Badge hinzufügen'}
+            </button>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px;" id="topBarCustomChipsList">
+            ${(() => {
+              const chips = this._config.top_bar_custom_chips || [];
+              if (chips.length === 0) {
+                return `
+                  <div style="text-align:center;padding:24px 16px;color:var(--text-secondary);font-size:13px;background:var(--bg-surface);border-radius:10px;border:1px dashed var(--border-subtle);">
+                    Keine eigenen Badges vorhanden. Klicke auf "+ Eigenes Badge hinzufügen", um eine Entität oder ein individuelles Modal in die Top-Leiste einzubinden.
+                  </div>
+                `;
+              }
+              return chips.map((c, cIdx) => {
+                const safeIcon = (c.icon && c.icon.includes(':')) ? c.icon : (MDI_ICON_MAP[c.icon] || (c.icon ? 'mdi:' + c.icon : 'mdi:tag-outline'));
+                const isChecked = c.enabled !== false;
+                const modalEntities = Array.isArray(c.modal_entities) ? c.modal_entities : [];
+                return `
+                  <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                        <input type="checkbox" class="chk-custom-chip-enabled" data-cidx="${cIdx}" ${isChecked ? 'checked' : ''} style="cursor:pointer;width:15px;height:15px;accent-color:var(--accent);">
+                        <span>Aktiv</span>
+                      </label>
+                      <div id="topBarChipIconBox_${cIdx}" style="width:28px;height:28px;border-radius:6px;background:rgba(56,189,248,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+                        <ha-icon icon="${safeIcon}" style="--mdc-icon-size:16px;"></ha-icon>
+                      </div>
+                      <input type="text" class="in-custom-chip-name" data-cidx="${cIdx}" value="${c.name || c.title || ''}" placeholder="Badge Name" style="width:140px;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:12px;font-weight:600;">
+                      <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:160px;">
+                        <input type="text" class="in-custom-chip-entity" data-cidx="${cIdx}" value="${c.entity_id || ''}" placeholder="Entität (optional für Live-Wert)" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:11px;font-family:monospace;">
+                        <button type="button" class="btn btn-sm btn-pick-custom-chip-entity" data-cidx="${cIdx}" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;">
+                          <ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon>
+                        </button>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-pick-custom-chip-icon" data-cidx="${cIdx}" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
+                        <ha-icon icon="mdi:palette-outline" style="--mdc-icon-size:13px;"></ha-icon> Icon
+                      </button>
+                      <button type="button" class="btn-micro btn-del-custom-chip" data-cidx="${cIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:4px;" title="Badge löschen">
+                        <ha-icon icon="mdi:close" style="--mdc-icon-size:15px;"></ha-icon>
+                      </button>
+                    </div>
+
+                    <!-- Modal Configuration for this Chip -->
+                    <div style="padding:8px 10px;background:rgba(0,0,0,0.18);border-radius:8px;border:1px dashed var(--border-subtle);display:flex;flex-direction:column;gap:6px;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                          <input type="checkbox" class="chk-custom-chip-modal" data-cidx="${cIdx}" ${c.open_modal ? 'checked' : ''} style="cursor:pointer;accent-color:var(--accent);">
+                          <span>${this._t('open_action_modal') || 'Eigenes Modal beim Klick öffnen'}</span>
+                        </label>
+                        <button type="button" class="btn btn-sm btn-add-custom-chip-modal-entity" data-cidx="${cIdx}" style="padding:2px 8px;font-size:11px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                          <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;"></ha-icon> ${this._t('add_entity_to_modal') || 'Entität zum Modal hinzufügen'}
+                        </button>
+                      </div>
+                      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                        ${modalEntities.length === 0 ? `
+                          <span style="font-size:11px;color:var(--text-secondary);font-style:italic;">Keine Entitäten zugewiesen (wird als Standard-Schalter/Info behandelt)</span>
+                        ` : modalEntities.map((mEnt, mIdx) => `
+                          <span class="chip" style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);display:inline-flex;align-items:center;gap:4px;">
+                            <span style="font-family:monospace;">${mEnt}</span>
+                            <button type="button" class="btn-micro btn-del-custom-chip-modal-ent" data-cidx="${cIdx}" data-eidx="${mIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+                              <ha-icon icon="mdi:close" style="--mdc-icon-size:12px;"></ha-icon>
+                            </button>
+                          </span>
+                        `).join('')}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+            })()}
+          </div>
+        </div>
+      </div>
+
       <!-- TAB 2: RAUM-OVERLAYS & SCHALTERZENTRALE (KATEGORIEN) -->
       <div id="stabContentOverlays" style="${activeTab === 'overlays' ? '' : 'display:none;'}">
         <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">
-          Konfiguriere individuelle Kategorien und Schalter/Helfer pro Raum für die Schalterzentrale und die Raum-Detail-Overlays.
+          ${this._t('controls_categories_desc') || 'Konfiguriere individuelle Kategorien und Schalter/Helfer pro Raum für die Schalterzentrale und die Raum-Detail-Overlays.'}
         </div>
         <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
-          <label style="font-size:12px;font-weight:600;">Raum auswählen:</label>
+          <label style="font-size:12px;font-weight:600;">${this._t('select_room') || 'Raum auswählen'}:</label>
           <select id="selSettingsOverlayRoom" style="max-width:240px;padding:6px 10px;border-radius:8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);">
             ${rooms.map((r, i) => `<option value="${i}" ${i === (this._settingsOverlayRoomIdx || 0) ? 'selected' : ''}>${r.name || r.id}</option>`).join('')}
           </select>
@@ -1044,12 +1260,12 @@ export const settingsMethods = {
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
                       <div style="display:flex;align-items:center;gap:8px;flex:1;">
                         <span style="color:var(--accent);font-weight:700;font-size:14px;">${cIdx + 1}.</span>
-                        <input type="text" class="in-cat-name" data-cidx="${cIdx}" value="${cat.name || ''}" placeholder="Kategorie Name" style="font-weight:700;font-size:14px;padding:6px 12px;border-radius:8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);flex:1;max-width:320px;">
+                        <input type="text" class="in-cat-name" data-cidx="${cIdx}" value="${cat.name || ''}" placeholder="${this._t('category_name_placeholder') || 'Kategorie Name'}" style="font-weight:700;font-size:14px;padding:6px 12px;border-radius:8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);flex:1;max-width:320px;">
                       </div>
                       <div style="display:flex;gap:4px;">
                         <button type="button" class="btn btn-sm btn-cat-up" data-cidx="${cIdx}" ${cIdx === 0 ? 'disabled' : ''} title="Nach oben">▲</button>
                         <button type="button" class="btn btn-sm btn-cat-down" data-cidx="${cIdx}" ${cIdx === cats.length - 1 ? 'disabled' : ''} title="Nach unten">▼</button>
-                        <button type="button" class="btn btn-sm btn-del-cat" data-cidx="${cIdx}" style="color:#ef4444;display:inline-flex;align-items:center;" title="Kategorie löschen"><ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon></button>
+                        <button type="button" class="btn btn-sm btn-del-cat" data-cidx="${cIdx}" style="color:#ef4444;display:inline-flex;align-items:center;" title="${this._t('delete_category') || 'Kategorie löschen'}"><ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon></button>
                       </div>
                     </div>
 
@@ -1072,11 +1288,11 @@ export const settingsMethods = {
                     </div>
 
                     <button type="button" class="btn btn-sm btn-add-cat-ent" data-cidx="${cIdx}" style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">
-                      <ha-icon icon="mdi:plus" style="--mdc-icon-size:14px;"></ha-icon> Entität hinzufügen
+                      <ha-icon icon="mdi:plus" style="--mdc-icon-size:14px;"></ha-icon> ${this._t('add_entity') || 'Entität hinzufügen'}
                     </button>
                   </div>
                 `).join('')}
-                <button type="button" class="btn btn-sm btn-primary" id="btnAddOverlayCategory" style="align-self:flex-start;padding:8px 16px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:plus" style="--mdc-icon-size:15px;"></ha-icon> Neue Kategorie hinzufügen</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnAddOverlayCategory" style="align-self:flex-start;padding:8px 16px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:plus" style="--mdc-icon-size:15px;"></ha-icon> ${this._t('add_category') || 'Neue Kategorie hinzufügen'}</button>
               </div>
             `;
           })()}
@@ -1176,27 +1392,24 @@ export const settingsMethods = {
       <!-- TAB 4: HELFER-KONTROLLEN -->
       <div id="stabContentControls" style="${activeTab === 'controls' ? '' : 'display:none;'}">
         <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
-          Konfiguriere hier die visuelle Darstellung deiner Home Assistant Helfer (<code style="color:var(--accent);">input_boolean</code>, <code style="color:var(--accent);">input_number</code>, <code style="color:var(--accent);">input_select</code>, <code style="color:var(--accent);">input_datetime</code>, <code style="color:var(--accent);">timer</code>, <code style="color:var(--accent);">counter</code>, etc.) mit den taktil-animierten Kontrollen aus <code style="color:var(--accent);">ha-advanced-helper-controls-card</code>.
+          ${this._t('helper_controls_desc') || 'Weise hier Entitäten und Helfern gezielt benutzerdefinierte, taktil-animierte Kontroll-Elemente (z.B. Wippschalter, Hold-Button, Rotary Knob, Slider, Hufeisen-Bogen) zu. Alle nicht hier aufgeführten Entitäten werden automatisch nach dem Systemstandard dargestellt.'}
         </div>
 
         <div style="display:flex;flex-direction:column;gap:10px;" id="helperControlsList">
           ${(() => {
             const helperControls = this._config.helper_controls || {};
-            const helperEntities = new Set(Object.keys(helperControls));
-            if (this._hass && this._hass.states) {
-              const helperPrefixes = ['input_boolean.', 'input_number.', 'input_select.', 'input_datetime.', 'input_text.', 'input_button.', 'timer.', 'counter.', 'schedule.'];
-              Object.keys(this._hass.states).forEach(eId => {
-                if (helperPrefixes.some(p => eId.startsWith(p))) {
-                  helperEntities.add(eId);
-                }
-              });
-            }
-            const sorted = Array.from(helperEntities).sort();
-            if (sorted.length === 0) {
-              return '<div style="font-size:13px;color:var(--text-secondary);padding:14px;">Keine Helfer im System gefunden. Klicke unten, um eine Entität hinzuzufügen.</div>';
+            const configuredEntities = Object.keys(helperControls);
+            if (configuredEntities.length === 0) {
+              return `
+                <div style="text-align:center;padding:28px 16px;background:var(--bg-card);border:1px dashed var(--border-subtle);border-radius:12px;color:var(--text-secondary);font-size:13px;">
+                  <ha-icon icon="mdi:tune-vertical" style="--mdc-icon-size:32px;opacity:0.6;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;"></ha-icon>
+                  <div>${this._t('no_custom_helpers_configured') || 'Keine benutzerdefinierten Darstellungen konfiguriert.'}</div>
+                  <div style="margin-top:6px;font-size:11px;opacity:0.8;">Alle Helfer und Entitäten nutzen standardmäßig die automatische System-Darstellung.</div>
+                </div>
+              `;
             }
 
-            return sorted.map(eId => {
+            return configuredEntities.map(eId => {
               const s = this._hass && this._hass.states[eId];
               const fname = s?.attributes?.friendly_name || eId;
               const domain = eId.split('.')[0];
@@ -1249,7 +1462,10 @@ export const settingsMethods = {
               } else {
                 options = [
                   { value: 'badge', label: 'Standard Badge' },
-                  { value: 'push_button', label: 'Taster' }
+                  { value: 'push_button', label: 'Taster' },
+                  { value: 'switch', label: 'Schalter' },
+                  { value: 'slider', label: 'Schieberegler' },
+                  { value: 'rotary-knob', label: 'Drehregler' }
                 ];
               }
 
@@ -1263,7 +1479,7 @@ export const settingsMethods = {
                     <select class="sel-helper-ctrl" data-entity="${eId}" style="padding:6px 10px;border-radius:8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);font-size:12px;font-weight:600;">
                       ${options.map(opt => `<option value="${opt.value}" ${opt.value === curType ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
-                    <button type="button" class="btn btn-sm btn-del-helper-ctrl" data-entity="${eId}" style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:14px;padding:4px;display:inline-flex;align-items:center;" title="Zurücksetzen"><ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon></button>
+                    <button type="button" class="btn btn-sm btn-del-helper-ctrl" data-entity="${eId}" style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:14px;padding:4px;display:inline-flex;align-items:center;" title="Entfernen"><ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon></button>
                   </div>
                 </div>
               `;
@@ -1271,8 +1487,8 @@ export const settingsMethods = {
           })()}
         </div>
 
-        <button type="button" class="btn btn-sm btn-primary" id="btnAddHelperControl" style="margin-top:14px;padding:8px 16px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-          <ha-icon icon="mdi:plus" style="--mdc-icon-size:15px;"></ha-icon> Weitere Helfer-Entität konfigurieren
+        <button type="button" class="btn btn-sm btn-primary" id="btnAddConfiguredHelper" style="margin-top:14px;padding:8px 16px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <ha-icon icon="mdi:plus" style="--mdc-icon-size:15px;"></ha-icon> ${this._t('add_helper_to_config') || 'Helfer / Entität hinzufügen'}
         </button>
       </div>
 
@@ -1450,97 +1666,19 @@ export const settingsMethods = {
           </div>
         </div>
 
+        <!-- Standard-Startseite (Default Dashboard) -->
         <div class="card-box" style="background:var(--bg-card);border:1px solid var(--border-glass);border-radius:14px;padding:16px;margin-top:14px;">
-          <div style="font-weight:700;font-size:15px;margin-bottom:12px;display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:badge-account-horizontal-outline" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon> Top-Bar Badges & Personen</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;">Wähle, welche Badges in der Kopfleiste angezeigt werden sollen, und bestimme die angezeigten Personen.</div>
-
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px;">
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="chkTopPersons" ${(this._config.top_bar_show_persons !== false) ? 'checked' : ''}>
-              <span>Personen-Badges</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="chkTopLights" ${(this._config.top_bar_show_lights !== false) ? 'checked' : ''}>
-              <span>Lichter-Zähler</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="chkTopClimate" ${(this._config.top_bar_show_climate !== false) ? 'checked' : ''}>
-              <span>Heizung / Temperatur</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="chkTopLock" ${(this._config.top_bar_show_lock !== false) ? 'checked' : ''}>
-              <span>Schloss / Sicherheit</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="chkTopAlarmo" ${(this._config.top_bar_show_alarmo !== false) ? 'checked' : ''}>
-              <span>Alarmo Status</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="chkTopWeather" ${(this._config.top_bar_show_weather !== false) ? 'checked' : ''}>
-              <span>Wetter-Badge</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="chkTopWarnings" ${(this._config.top_bar_show_warnings !== false) ? 'checked' : ''}>
-              <span>Amtliche Warnungen</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="chkTopMedia" ${(this._config.top_bar_show_media !== false) ? 'checked' : ''}>
-              <span>Aktive Medien</span>
-            </label>
+          <div style="font-weight:700;font-size:15px;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+            <ha-icon icon="mdi:home-export-outline" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon> Standard-Startseite
           </div>
-
-          <div style="border-top:1px solid var(--border-subtle);padding-top:12px;margin-bottom:14px;">
-            <div style="font-weight:600;font-size:13px;margin-bottom:6px;">Personen-Auswahl</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;" id="topPersonsSelection">
-              ${(() => {
-                const allPersons = this._hass ? Object.keys(this._hass.states).filter(e => e.startsWith('person.')) : [];
-                const confPersons = this._config.top_bar_persons || [];
-                return allPersons.map(pId => {
-                  const s = this._hass.states[pId];
-                  const name = s?.attributes?.friendly_name || pId.replace('person.', '');
-                  const isChecked = confPersons.length === 0 || confPersons.includes(pId);
-                  return `
-                    <label style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;">
-                      <input type="checkbox" class="chk-person-select" data-person-id="${pId}" ${isChecked ? 'checked' : ''}>
-                      <span>${name}</span>
-                      <code style="font-size:10px;color:var(--text-secondary);">${pId}</code>
-                    </label>
-                  `;
-                }).join('') || '<span style="font-size:12px;color:var(--text-secondary);">Keine Personen im System gefunden.</span>';
-              })()}
-            </div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
+            AtGlance wird beim Aufrufen von Home Assistant im Browser und in der Companion App automatisch als primäres Dashboard geöffnet (system- und benutzerweit).
           </div>
-
-          <div style="border-top:1px solid var(--border-subtle);padding-top:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <div style="font-weight:600;font-size:13px;">Zusätzliche Entitäten in der Top-Bar (${(this._config.top_bar_custom_chips || []).length})</div>
-              <button type="button" class="btn btn-sm btn-primary" id="btnAddTopCustomChip" style="padding:4px 10px;font-size:12px;">+ Badge hinzufügen</button>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;" id="topCustomChipsList">
-              ${(this._config.top_bar_custom_chips || []).map((c, cIdx) => `
-                <span class="badge" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);padding:4px 8px;border-radius:6px;font-size:12px;font-family:monospace;">
-                  <span>${c.name || c.entity_id}</span>
-                  <button type="button" class="btn-micro btn-del-top-chip" data-cidx="${cIdx}" style="padding:0 4px;font-size:12px;cursor:pointer;color:#ef4444;background:none;border:none;">&times;</button>
-                </span>
-              `).join('')}
-              ${(!this._config.top_bar_custom_chips || this._config.top_bar_custom_chips.length === 0) ? `<span style="font-size:12px;color:var(--text-secondary);font-style:italic;">Keine zusätzlichen Badges angelegt</span>` : ''}
-            </div>
-          </div>
-
-          <!-- Standard-Startseite (Default Dashboard) -->
-          <div style="border-top:1px solid var(--border-subtle);padding-top:14px;margin-top:16px;">
-            <div style="font-weight:700;font-size:14px;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
-              <ha-icon icon="mdi:home-export-outline" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon> Standard-Startseite
-            </div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
-              Vision Glass wird beim Aufrufen von Home Assistant im Browser und in der Companion App automatisch als primäres Dashboard geöffnet (system- und benutzerweit).
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-              <button type="button" class="btn btn-sm btn-primary" id="btnSetAsDefaultDashboard" style="display:inline-flex;align-items:center;gap:6px;">
-                <ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size:16px;"></ha-icon> Als Standard-Dashboard aktualisieren
-              </button>
-              <span id="lblDefaultDashboardStatus" style="font-size:12px;font-weight:600;color:#10b981;">✓ Standardmäßig aktiv</span>
-            </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm btn-primary" id="btnSetAsDefaultDashboard" style="display:inline-flex;align-items:center;gap:6px;">
+              <ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size:16px;"></ha-icon> Als Standard-Dashboard aktualisieren
+            </button>
+            <span id="lblDefaultDashboardStatus" style="font-size:12px;font-weight:600;color:#10b981;">✓ Standardmäßig aktiv</span>
           </div>
         </div>
       </div>
@@ -2543,6 +2681,125 @@ export const settingsMethods = {
       };
     });
 
+    // Bento Action Modal Configuration Handlers
+    container.querySelectorAll('.btn-toggle-act-modal-cfg').forEach(btn => {
+      btn.onclick = () => {
+        const rIdx = parseInt(btn.getAttribute('data-ridx'));
+        const actType = btn.getAttribute('data-act-type');
+        const caIdx = btn.getAttribute('data-caidx');
+        const boxId = (caIdx !== null && caIdx !== undefined) ? `actModalCfg_${rIdx}_ca_${caIdx}` : `actModalCfg_${rIdx}_${actType}`;
+        const box = container.querySelector('#' + boxId);
+        if (box) {
+          box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+        }
+      };
+    });
+
+    container.querySelectorAll('.chk-act-open-modal').forEach(chk => {
+      chk.onchange = () => {
+        const rIdx = parseInt(chk.getAttribute('data-ridx'));
+        const actType = chk.getAttribute('data-act-type');
+        const caIdx = chk.getAttribute('data-caidx');
+        const room = this._config.rooms?.[rIdx];
+        if (!room) return;
+        if (!Array.isArray(room.bento_actions)) {
+          room.bento_actions = [...this._getRoomBentoActions(room)];
+        }
+        let act = null;
+        if (caIdx !== null && caIdx !== undefined) {
+          const customActs = room.bento_actions.filter(a => a.type === 'custom');
+          act = customActs[parseInt(caIdx)];
+        } else {
+          act = room.bento_actions.find(a => a.type === actType);
+          if (!act) {
+            act = { type: actType, enabled: true };
+            room.bento_actions.push(act);
+          }
+        }
+        if (act) {
+          act.open_modal = chk.checked;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
+    container.querySelectorAll('.btn-add-act-modal-entity').forEach(btn => {
+      btn.onclick = () => {
+        const rIdx = parseInt(btn.getAttribute('data-ridx'));
+        const actType = btn.getAttribute('data-act-type');
+        const caIdx = btn.getAttribute('data-caidx');
+        const room = this._config.rooms?.[rIdx];
+        if (!room) return;
+        if (!Array.isArray(room.bento_actions)) {
+          room.bento_actions = [...this._getRoomBentoActions(room)];
+        }
+        let act = null;
+        if (caIdx !== null && caIdx !== undefined) {
+          const customActs = room.bento_actions.filter(a => a.type === 'custom');
+          act = customActs[parseInt(caIdx)];
+        } else {
+          act = room.bento_actions.find(a => a.type === actType);
+          if (!act) {
+            act = { type: actType, enabled: true };
+            room.bento_actions.push(act);
+          }
+        }
+        if (!act) return;
+        this._showEntityPicker({
+          currentValue: '',
+          defaultDomain: 'all',
+          roomId: room.id,
+          roomName: room.name,
+          onSelect: (selectedId) => {
+            if (selectedId) {
+              if (!Array.isArray(act.modal_entities)) act.modal_entities = [];
+              if (!act.modal_entities.includes(selectedId)) {
+                act.modal_entities.push(selectedId);
+                act.open_modal = true;
+                this._markSettingsDirty(container);
+                this._renderSettingsContent(container, isModal);
+              }
+            }
+          }
+        });
+      };
+    });
+
+    container.querySelectorAll('.btn-del-act-modal-entity').forEach(btn => {
+      btn.onclick = () => {
+        const rIdx = parseInt(btn.getAttribute('data-ridx'));
+        const actType = btn.getAttribute('data-act-type');
+        const caIdx = btn.getAttribute('data-caidx');
+        const eIdx = parseInt(btn.getAttribute('data-eidx'));
+        const room = this._config.rooms?.[rIdx];
+        if (!room || !Array.isArray(room.bento_actions)) return;
+        let act = null;
+        if (caIdx !== null && caIdx !== undefined) {
+          const customActs = room.bento_actions.filter(a => a.type === 'custom');
+          act = customActs[parseInt(caIdx)];
+        } else {
+          act = room.bento_actions.find(a => a.type === actType);
+        }
+        if (act && Array.isArray(act.modal_entities)) {
+          act.modal_entities.splice(eIdx, 1);
+          this._markSettingsDirty(container);
+          this._renderSettingsContent(container, isModal);
+        }
+      };
+    });
+
+    // Room Select Properties (e.g. temp_control_target)
+    container.querySelectorAll('.sel-room-prop').forEach(sel => {
+      sel.onchange = () => {
+        const rIdx = parseInt(sel.getAttribute('data-ridx'));
+        const prop = sel.getAttribute('data-prop');
+        if (this._config.rooms && this._config.rooms[rIdx]) {
+          this._config.rooms[rIdx][prop] = sel.value;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
     // Room Bento Badges Handlers
     container.querySelectorAll('.btn-add-room-badge').forEach(btn => {
       btn.onclick = () => {
@@ -2656,57 +2913,194 @@ export const settingsMethods = {
     });
 
     // Helper Controls Handlers
-    const btnAddHelper = container.querySelector('#btnAddHelperControl');
+    const btnAddHelper = container.querySelector('#btnAddConfiguredHelper') || container.querySelector('#btnAddHelperControl');
     if (btnAddHelper) {
       btnAddHelper.onclick = () => {
         this._showEntityPicker({
-          defaultDomain: 'input_number',
-          onSelect: (eId) => {
-            if (!this._config.helper_controls) this._config.helper_controls = {};
-            const domain = eId.split('.')[0];
-            const defType = domain === 'input_number' ? 'slider' : (domain === 'input_select' ? 'segmented' : (domain === 'input_datetime' ? 'time_input' : 'switch'));
-            this._config.helper_controls[eId] = defType;
-            this._renderSettingsContent(container, isModal);
-          }
-        });
-      };
-    }
-    container.querySelectorAll('.btn-del-helper-ctrl').forEach(btn => {
-      btn.onclick = () => {
-        const eId = btn.getAttribute('data-entity');
-        if (this._config.helper_controls && this._config.helper_controls[eId]) {
-          delete this._config.helper_controls[eId];
-          this._renderSettingsContent(container, isModal);
-        }
-      };
-    });
-
-    // Top-Bar Custom Chip Handlers
-    const btnAddTopChip = container.querySelector('#btnAddTopCustomChip');
-    if (btnAddTopChip) {
-      btnAddTopChip.onclick = () => {
-        this._showEntityPicker({
           defaultDomain: 'all',
-          onSelect: (selectedId) => {
-            if (selectedId) {
-              if (!this._config.top_bar_custom_chips) this._config.top_bar_custom_chips = [];
-              const s = this._hass?.states[selectedId];
-              this._config.top_bar_custom_chips.push({
-                entity_id: selectedId,
-                name: s?.attributes?.friendly_name || selectedId,
-                icon: 'star'
-              });
+          onSelect: (eId) => {
+            if (eId) {
+              if (!this._config.helper_controls) this._config.helper_controls = {};
+              const domain = eId.split('.')[0];
+              const defType = domain === 'input_number' ? 'slider' : (domain === 'input_select' ? 'segmented' : (domain === 'input_datetime' ? 'time_input' : (domain === 'timer' ? 'circular-timer' : 'switch')));
+              this._config.helper_controls[eId] = defType;
+              this._markSettingsDirty(container);
               this._renderSettingsContent(container, isModal);
             }
           }
         });
       };
     }
-    container.querySelectorAll('.btn-del-top-chip').forEach(btn => {
+    container.querySelectorAll('.sel-helper-ctrl').forEach(sel => {
+      sel.onchange = () => {
+        const eId = sel.getAttribute('data-entity');
+        if (eId) {
+          if (!this._config.helper_controls) this._config.helper_controls = {};
+          this._config.helper_controls[eId] = sel.value;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+    container.querySelectorAll('.btn-del-helper-ctrl').forEach(btn => {
+      btn.onclick = () => {
+        const eId = btn.getAttribute('data-entity');
+        if (this._config.helper_controls && this._config.helper_controls[eId]) {
+          delete this._config.helper_controls[eId];
+          this._markSettingsDirty(container);
+          this._renderSettingsContent(container, isModal);
+        }
+      };
+    });
+
+    // Top-Bar Built-in Badges & Custom Badges Handlers
+    container.querySelectorAll('.chk-top-bar-badge').forEach(chk => {
+      chk.onchange = () => {
+        const key = chk.getAttribute('data-key');
+        if (key) {
+          this._config[key] = chk.checked;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
+    const btnAddTopBarChip = container.querySelector('#btnAddTopBarCustomChip') || container.querySelector('#btnAddTopCustomChip');
+    if (btnAddTopBarChip) {
+      btnAddTopBarChip.onclick = () => {
+        if (!Array.isArray(this._config.top_bar_custom_chips)) {
+          this._config.top_bar_custom_chips = [];
+        }
+        this._config.top_bar_custom_chips.push({
+          id: 'chip_' + Date.now().toString(36),
+          name: 'Neues Badge',
+          icon: 'mdi:tag-outline',
+          entity_id: '',
+          enabled: true,
+          open_modal: false,
+          modal_entities: []
+        });
+        this._markSettingsDirty(container);
+        this._renderSettingsContent(container, isModal);
+      };
+    }
+
+    container.querySelectorAll('.chk-custom-chip-enabled').forEach(chk => {
+      chk.onchange = () => {
+        const cIdx = parseInt(chk.getAttribute('data-cidx'));
+        if (this._config.top_bar_custom_chips?.[cIdx]) {
+          this._config.top_bar_custom_chips[cIdx].enabled = chk.checked;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
+    container.querySelectorAll('.in-custom-chip-name').forEach(inp => {
+      inp.oninput = () => {
+        const cIdx = parseInt(inp.getAttribute('data-cidx'));
+        if (this._config.top_bar_custom_chips?.[cIdx]) {
+          this._config.top_bar_custom_chips[cIdx].name = inp.value;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
+    container.querySelectorAll('.in-custom-chip-entity').forEach(inp => {
+      inp.oninput = () => {
+        const cIdx = parseInt(inp.getAttribute('data-cidx'));
+        if (this._config.top_bar_custom_chips?.[cIdx]) {
+          this._config.top_bar_custom_chips[cIdx].entity_id = inp.value.trim();
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
+    container.querySelectorAll('.btn-pick-custom-chip-entity').forEach(btn => {
+      btn.onclick = () => {
+        const cIdx = parseInt(btn.getAttribute('data-cidx'));
+        const chip = this._config.top_bar_custom_chips?.[cIdx];
+        if (!chip) return;
+        this._showEntityPicker({
+          currentValue: chip.entity_id || '',
+          defaultDomain: 'all',
+          onSelect: (selectedId) => {
+            chip.entity_id = selectedId;
+            if (!chip.name || chip.name === 'Neues Badge') {
+              const s = this._hass?.states?.[selectedId];
+              if (s?.attributes?.friendly_name) chip.name = s.attributes.friendly_name;
+            }
+            this._markSettingsDirty(container);
+            this._renderSettingsContent(container, isModal);
+          }
+        });
+      };
+    });
+
+    container.querySelectorAll('.btn-pick-custom-chip-icon').forEach(btn => {
+      btn.onclick = () => {
+        const cIdx = parseInt(btn.getAttribute('data-cidx'));
+        const chip = this._config.top_bar_custom_chips?.[cIdx];
+        if (!chip) return;
+        this._showIconPicker({
+          currentValue: chip.icon || 'mdi:tag-outline',
+          onSelect: (newIcon) => {
+            chip.icon = newIcon;
+            this._markSettingsDirty(container);
+            this._renderSettingsContent(container, isModal);
+          }
+        });
+      };
+    });
+
+    container.querySelectorAll('.btn-del-custom-chip, .btn-del-top-chip').forEach(btn => {
       btn.onclick = () => {
         const cIdx = parseInt(btn.getAttribute('data-cidx'));
         if (this._config.top_bar_custom_chips) {
           this._config.top_bar_custom_chips.splice(cIdx, 1);
+          this._markSettingsDirty(container);
+          this._renderSettingsContent(container, isModal);
+        }
+      };
+    });
+
+    container.querySelectorAll('.chk-custom-chip-modal').forEach(chk => {
+      chk.onchange = () => {
+        const cIdx = parseInt(chk.getAttribute('data-cidx'));
+        if (this._config.top_bar_custom_chips?.[cIdx]) {
+          this._config.top_bar_custom_chips[cIdx].open_modal = chk.checked;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
+    container.querySelectorAll('.btn-add-custom-chip-modal-entity').forEach(btn => {
+      btn.onclick = () => {
+        const cIdx = parseInt(btn.getAttribute('data-cidx'));
+        const chip = this._config.top_bar_custom_chips?.[cIdx];
+        if (!chip) return;
+        this._showEntityPicker({
+          currentValue: '',
+          defaultDomain: 'all',
+          onSelect: (selectedId) => {
+            if (selectedId) {
+              if (!Array.isArray(chip.modal_entities)) chip.modal_entities = [];
+              if (!chip.modal_entities.includes(selectedId)) {
+                chip.modal_entities.push(selectedId);
+                chip.open_modal = true;
+                this._markSettingsDirty(container);
+                this._renderSettingsContent(container, isModal);
+              }
+            }
+          }
+        });
+      };
+    });
+
+    container.querySelectorAll('.btn-del-custom-chip-modal-ent').forEach(btn => {
+      btn.onclick = () => {
+        const cIdx = parseInt(btn.getAttribute('data-cidx'));
+        const eIdx = parseInt(btn.getAttribute('data-eidx'));
+        if (this._config.top_bar_custom_chips?.[cIdx]?.modal_entities) {
+          this._config.top_bar_custom_chips[cIdx].modal_entities.splice(eIdx, 1);
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2963,6 +3357,15 @@ export const settingsMethods = {
         }
       });
 
+      // Collect room dropdowns (e.g. temp_control_target)
+      container.querySelectorAll('.sel-room-prop').forEach(sel => {
+        const rIdx = parseInt(sel.getAttribute('data-ridx'));
+        const prop = sel.getAttribute('data-prop');
+        if (this._config.rooms && this._config.rooms[rIdx]) {
+          this._config.rooms[rIdx][prop] = sel.value;
+        }
+      });
+
       // Collect eco comfort checkboxes
       container.querySelectorAll('.chk-enable-eco-comfort').forEach(chk => {
         const rIdx = parseInt(chk.getAttribute('data-ridx'));
@@ -3032,6 +3435,10 @@ export const settingsMethods = {
       if (cAutoDock && this._config.dock) this._config.dock.auto_detect = cAutoDock.checked;
 
       // Collect Top-Bar settings
+      container.querySelectorAll('.chk-top-bar-badge').forEach(chk => {
+        const key = chk.getAttribute('data-key');
+        if (key) this._config[key] = chk.checked;
+      });
       const chkTPersons = container.querySelector('#chkTopPersons');
       if (chkTPersons) this._config.top_bar_show_persons = chkTPersons.checked;
       const chkTLights = container.querySelector('#chkTopLights');

@@ -1072,6 +1072,10 @@ export const modalMethods = {
     this._activeModal = type;
     this._activeModalContext = context;
     const modalEl = this.shadowRoot.getElementById('modalContainer');
+    const body = this.shadowRoot.getElementById('modalBody');
+    const title = this.shadowRoot.getElementById('modalTitle');
+    if (body) body.innerHTML = '';
+    if (title) title.innerHTML = '';
     if (modalEl) {
       modalEl.classList.remove('hidden');
       if (type === 'weather') {
@@ -1079,6 +1083,10 @@ export const modalMethods = {
       }
       this._renderModalContent(type);
     }
+  },
+
+  _openCustomActionModal(action, room = null) {
+    this._openModal('custom_action', { action, room });
   },
 
   _getModalAreaSuffix() {
@@ -1105,7 +1113,94 @@ export const modalMethods = {
     const title = customContainer ? null : this.shadowRoot.getElementById('modalTitle');
     if (!body || (!customContainer && !title) || !this._hass) return;
 
-    if (type === 'lighting') {
+    body.innerHTML = '';
+    if (title) title.innerHTML = '';
+
+    try {
+      if (type === 'custom_action') {
+        const { action, room } = this._activeModalContext || {};
+        const actionTitle = action?.title || action?.name || 'Aktion';
+        const roomName = room?.name || room?.id;
+        const iconName = action?.icon || 'mdi:star';
+        const displayTitle = roomName ? `${actionTitle} – ${roomName}` : actionTitle;
+
+        if (title) {
+          title.innerHTML = `${this._icon(iconName, { size: 22, cls: 'icon-action', style: 'margin-right:8px;color:var(--accent);' })} <span>${displayTitle}</span>`;
+        }
+
+        let entities = Array.isArray(action?.modal_entities) ? [...action.modal_entities] : [];
+        if (entities.length === 0) {
+          if (action?.type === 'media' && room) {
+            entities = [room.media_entity, room.audio_entity, room.video_entity, room.tv_entity].filter(e => e && typeof e === 'string' && e.trim());
+            if (entities.length === 0 && this._hass?.states) {
+              entities = Object.keys(this._hass.states).filter(eId => eId.startsWith('media_player.') && this._isEntityInRoom(eId, room.id, room.name));
+            }
+          } else if (action?.type === 'light' && room) {
+            entities = [room.light_entity, ...(Array.isArray(room.lights) ? room.lights : [])].filter(e => e && typeof e === 'string' && e.trim());
+          } else if (action?.type === 'climate' && room) {
+            entities = [room.climate_entity, room.target_temp_entity, room.temp_entity].filter(e => e && typeof e === 'string' && e.trim());
+          } else if (action?.type === 'lock' && room) {
+            entities = [room.lock_entity].filter(e => e && typeof e === 'string' && e.trim());
+          } else if (action?.entity_id) {
+            entities = [action.entity_id];
+          }
+        }
+        entities = [...new Set(entities)].filter(eId => Boolean(this._hass.states[eId]));
+
+        if (entities.length === 0) {
+          body.innerHTML = `
+            <div style="text-align:center;padding:32px 16px;color:var(--text-secondary);font-size:13px;">
+              <ha-icon icon="mdi:information-outline" style="--mdc-icon-size:32px;opacity:0.6;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;"></ha-icon>
+              <div>Keine aktiven Entitäten für diese Aktion konfiguriert.</div>
+              <div style="margin-top:8px;font-size:12px;opacity:0.8;">In den Raumeinstellungen unter Aktions-Icons können Entitäten für dieses Modal hinzugefügt werden.</div>
+            </div>
+          `;
+          return;
+        }
+
+        body.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:10px;">
+              ${entities.map(eId => this._renderGenericEntityRow(eId, this._hass.states[eId])).join('')}
+            </div>
+          </div>
+        `;
+        this._bindInteractiveRows(body);
+        return;
+      }
+
+      if (type === 'custom_badge') {
+        const chip = this._activeModalContext;
+        const chipTitle = chip?.title || chip?.name || 'Badge';
+        const iconName = chip?.icon || 'mdi:tag-outline';
+        if (title) {
+          title.innerHTML = `${this._icon(iconName, { size: 22, style: 'margin-right:8px;color:var(--accent);' })} <span>${chipTitle}</span>`;
+        }
+        let entities = Array.isArray(chip?.modal_entities) ? [...chip.modal_entities] : (chip?.entity_id ? [chip.entity_id] : []);
+        entities = [...new Set(entities)].filter(eId => Boolean(this._hass.states[eId]));
+
+        if (entities.length === 0) {
+          body.innerHTML = `
+            <div style="text-align:center;padding:32px 16px;color:var(--text-secondary);font-size:13px;">
+              <ha-icon icon="mdi:information-outline" style="--mdc-icon-size:32px;opacity:0.6;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;"></ha-icon>
+              <div>Keine Entitäten für dieses Badge konfiguriert.</div>
+            </div>
+          `;
+          return;
+        }
+
+        body.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:10px;">
+              ${entities.map(eId => this._renderGenericEntityRow(eId, this._hass.states[eId])).join('')}
+            </div>
+          </div>
+        `;
+        this._bindInteractiveRows(body);
+        return;
+      }
+
+      if (type === 'lighting') {
       const room = this._activeModalContext;
       title.innerHTML = `${this._icon('light', { size: 22, cls: 'icon-light', style: 'margin-right:8px;' })} ${this._t('lighting_control')}${this._getModalAreaSuffix()}`;
 
@@ -2733,7 +2828,17 @@ export const modalMethods = {
         };
       }
     }
-  },
+  } catch (err) {
+    console.error('[AtGlance] Error rendering modal content:', err);
+    body.innerHTML = `
+      <div style="padding:28px 16px;text-align:center;color:#ef4444;font-size:13px;">
+        <ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:36px;display:block;margin:0 auto 10px auto;"></ha-icon>
+        <div style="font-weight:600;">Fehler beim Laden des Modals</div>
+        <div style="font-size:11px;opacity:0.8;margin-top:4px;font-family:monospace;">${err?.message || err}</div>
+      </div>
+    `;
+  }
+},
 
   _resolveEntityArea(eId) {
     let areaId = this._hass?.entities?.[eId]?.area_id;

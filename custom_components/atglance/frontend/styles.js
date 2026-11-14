@@ -1173,20 +1173,52 @@ export const ATGLANCE_STYLES = `
           align-items: center;
         }
 
+        /* Firefox WebRender & Chromium Pointer Enforcement - Eliminates Crosshair Artifact */
+        .room-actions,
+        .room-actions *,
+        .action-circle,
+        .action-circle *,
+        .quick-climate-stepper,
+        .quick-climate-stepper *,
+        .quick-step-btn,
+        .quick-step-btn *,
+        .chip,
+        .chip *,
+        .dock-item,
+        .dock-item * {
+          cursor: pointer !important;
+        }
+
         .action-circle {
           width: 32px;
           height: 32px;
           border-radius: 50%;
           background: rgba(255, 255, 255, 0.12);
           backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--border-glass);
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 14px;
-          cursor: pointer;
+          cursor: pointer !important;
           transition: all 0.2s;
           user-select: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -webkit-user-drag: none;
+        }
+        .action-circle * {
+          pointer-events: none !important;
+          cursor: pointer !important;
+        }
+        .action-circle ha-icon,
+        .action-circle svg,
+        .action-circle path,
+        .action-circle .vg-icon {
+          pointer-events: none !important;
+          cursor: pointer !important;
+          filter: none !important;
         }
         .action-circle:hover {
           transform: scale(1.12);
