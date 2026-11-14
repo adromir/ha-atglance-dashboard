@@ -638,6 +638,9 @@ export const settingsMethods = {
     } else if (!this._config.dock.items || this._config.dock.items.length === 0) {
       this._config.dock.items = JSON.parse(JSON.stringify(defaultDockItems));
     }
+    if (typeof this._ensureTopBarBadgeDefaults === 'function') {
+      this._ensureTopBarBadgeDefaults();
+    }
     const dock = this._config.dock;
     const allEntities = this._hass ? Object.keys(this._hass.states).sort() : [];
 
@@ -663,7 +666,7 @@ export const settingsMethods = {
             ${this._icon('settings', { size: 24 })}
           </div>
           <div>
-            <div style="font-size:20px;font-weight:700;">${this._t('settings')} – Vision Glass</div>
+            <div style="font-size:20px;font-weight:700;">${this._t('settings')} – AtGlance</div>
             <div style="font-size:12px;color:var(--text-secondary);">${this._t('configure_dashboard')}</div>
           </div>
         </div>
@@ -676,8 +679,8 @@ export const settingsMethods = {
       <div class="nav-tabs" style="display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px;">
         <button class="nav-tab ${activeTab === 'rooms' ? 'active' : ''}" data-stab="rooms" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:home-outline" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('rooms_and_cards')} (${rooms.length})</button>
         <button class="nav-tab ${activeTab === 'topbar' ? 'active' : ''}" data-stab="topbar" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:page-layout-header" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('top_bar_settings') || 'Top-Leiste & Navigation'}</button>
-        <button class="nav-tab ${activeTab === 'overlays' ? 'active' : ''}" data-stab="overlays" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:folder-outline" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('controls_categories') || 'Raum-Kategorien & Schalterzentrale'}</button>
-        <button class="nav-tab ${activeTab === 'dock' ? 'active' : ''}" data-stab="dock" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:dock-bottom" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('dock_navigation')}</button>
+        <button class="nav-tab ${activeTab === 'dock' ? 'active' : ''}" data-stab="dock" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:dock-bottom" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('dock_navigation') || 'Bottom Leiste'}</button>
+        <button class="nav-tab ${activeTab === 'overlays' ? 'active' : ''}" data-stab="overlays" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:folder-outline" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('controls_categories') || 'Schalterzentrale'}</button>
         <button class="nav-tab ${activeTab === 'controls' ? 'active' : ''}" data-stab="controls" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:tune" style="--mdc-icon-size:16px;"></ha-icon> Helfer-Kontrollen</button>
         <button class="nav-tab ${activeTab === 'stats' ? 'active' : ''}" data-stab="stats" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:chart-timeline-variant" style="--mdc-icon-size:16px;"></ha-icon> Statistiken</button>
         <button class="nav-tab ${activeTab === 'general' ? 'active' : ''}" data-stab="general" style="display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:cog-outline" style="--mdc-icon-size:16px;"></ha-icon> Design & Allgemein</button>
@@ -1105,26 +1108,86 @@ export const settingsMethods = {
             <ha-icon icon="mdi:view-dashboard-outline" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
             <span>${this._t('top_bar_builtin_badges') || 'Integrierte Badges (Standard)'}</span>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
-            ${[
-              { key: 'top_bar_show_weather', label: this._t('weather') || 'Wetter', icon: 'mdi:weather-partly-cloudy' },
-              { key: 'top_bar_show_warnings', label: this._t('warnings_center_title') || 'Warnzentrale', icon: 'mdi:alert-circle' },
-              { key: 'top_bar_show_media', label: this._t('multimedia') || 'Medienwiedergabe', icon: 'mdi:music' },
-              { key: 'top_bar_show_alarmo', label: this._t('alarmo') || 'Alarmanlage', icon: 'mdi:shield' },
-              { key: 'top_bar_show_persons', label: this._t('presence') || 'Personen & Anwesenheit', icon: 'mdi:account-group' },
-              { key: 'top_bar_show_lights', label: this._t('lighting') || 'Beleuchtung', icon: 'mdi:lightbulb' },
-              { key: 'top_bar_show_climate', label: this._t('climate') || 'Heizung & Klima', icon: 'mdi:thermometer' },
-              { key: 'top_bar_show_lock', label: this._t('security') || 'Schloss & Türen', icon: 'mdi:lock' },
-              { key: 'top_bar_show_stats', label: this._t('stats') || 'Statistiken', icon: 'mdi:chart-bar' }
-            ].map(b => `
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;cursor:pointer;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <ha-icon icon="${b.icon}" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
-                  <span style="font-weight:600;font-size:13px;">${b.label}</span>
-                </div>
-                <input type="checkbox" class="chk-top-bar-badge" data-key="${b.key}" ${this._config[b.key] !== false ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);">
-              </label>
-            `).join('')}
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.4;">
+            Wähle aus, welche Badges angezeigt werden, passe die Farbe des Icons an und konfiguriere die zugehörigen Modal-Entitäten. Bei der Erstinstallation werden die Modale automatisch mit passenden Entitäten befüllt.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${(() => {
+              const builtinBadges = [
+                { id: 'weather', key: 'top_bar_show_weather', label: this._t('weather') || 'Wetter', icon: 'mdi:weather-partly-cloudy', defaultColor: '#38bdf8' },
+                { id: 'warnings', key: 'top_bar_show_warnings', label: this._t('warnings_center_title') || 'Warnzentrale', icon: 'mdi:alert-circle', defaultColor: '#ef4444' },
+                { id: 'media', key: 'top_bar_show_media', label: this._t('multimedia') || 'Medienwiedergabe', icon: 'mdi:music', defaultColor: '#a855f7' },
+                { id: 'alarmo', key: 'top_bar_show_alarmo', label: this._t('alarmo') || 'Alarmanlage', icon: 'mdi:shield', defaultColor: '#6366f1' },
+                { id: 'persons', key: 'top_bar_show_persons', label: this._t('presence') || 'Personen & Anwesenheit', icon: 'mdi:account-group', defaultColor: '#8b5cf6' },
+                { id: 'lights', key: 'top_bar_show_lights', label: this._t('lighting') || 'Beleuchtung', icon: 'mdi:lightbulb', defaultColor: '#f59e0b' },
+                { id: 'climate', key: 'top_bar_show_climate', label: this._t('climate') || 'Heizung & Klima', icon: 'mdi:thermometer', defaultColor: '#38bdf8' },
+                { id: 'lock', key: 'top_bar_show_lock', label: this._t('security') || 'Schloss & Türen', icon: 'mdi:lock', defaultColor: '#10b981' },
+                { id: 'stats', key: 'top_bar_show_stats', label: this._t('stats') || 'Statistiken', icon: 'mdi:chart-bar', defaultColor: '#10b981' }
+              ];
+              return builtinBadges.map(b => {
+                const bConf = (this._config.top_bar_badges && this._config.top_bar_badges[b.id]) || {};
+                const isChecked = bConf.enabled !== undefined ? bConf.enabled : (this._config[b.key] !== false);
+                const iconColor = bConf.icon_color || b.defaultColor;
+                const modalEntities = Array.isArray(bConf.modal_entities) ? bConf.modal_entities : [];
+                return `
+                  <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                      <div style="display:flex;align-items:center;gap:10px;">
+                        <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+                          <input type="checkbox" class="chk-builtin-badge-enabled" data-badge-id="${b.id}" data-key="${b.key}" ${isChecked ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);">
+                          <div style="width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;color:${iconColor};" id="builtinBadgeIconPreview_${b.id}">
+                            <ha-icon icon="${b.icon}" style="--mdc-icon-size:18px;"></ha-icon>
+                          </div>
+                          <span style="font-weight:700;font-size:13px;color:var(--text-primary);">${b.label}</span>
+                        </label>
+                      </div>
+
+                      <div style="display:flex;align-items:center;gap:12px;">
+                        <!-- Color Picker -->
+                        <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);cursor:pointer;margin:0;">
+                          <ha-icon icon="mdi:palette" style="--mdc-icon-size:14px;"></ha-icon> Farbe:
+                          <input type="color" class="cp-builtin-badge-color" data-badge-id="${b.id}" value="${iconColor}" style="width:28px;height:24px;border:none;border-radius:4px;cursor:pointer;background:transparent;padding:0;">
+                        </label>
+
+                        <!-- Expand/Collapse Modal Entities -->
+                        <button type="button" class="btn btn-sm btn-toggle-builtin-modal" data-badge-id="${b.id}" style="padding:4px 10px;font-size:11px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                          <ha-icon icon="mdi:tune" style="--mdc-icon-size:13px;"></ha-icon>
+                          <span>Modal (${modalEntities.length})</span>
+                          <ha-icon icon="mdi:chevron-down" style="--mdc-icon-size:14px;" class="chevron-builtin-modal" data-badge-id="${b.id}"></ha-icon>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Collapsible Modal Entities Panel -->
+                    <div id="builtinModalPanel_${b.id}" style="display:none;padding:10px 12px;background:rgba(0,0,0,0.18);border-radius:8px;border:1px dashed var(--border-subtle);flex-direction:column;gap:8px;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                        <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Im Modal angezeigte Entitäten:</span>
+                        <button type="button" class="btn btn-sm btn-add-builtin-modal-entity" data-badge-id="${b.id}" style="padding:3px 8px;font-size:11px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                          <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;"></ha-icon> Entität hinzufügen
+                        </button>
+                      </div>
+                      <div style="display:flex;flex-wrap:wrap;gap:6px;" id="builtinModalEntitiesList_${b.id}">
+                        ${modalEntities.length === 0 ? `
+                          <span style="font-size:11px;color:var(--text-secondary);font-style:italic;">Keine Entitäten zugewiesen.</span>
+                        ` : modalEntities.map((mEnt, mIdx) => {
+                          const s = this._hass?.states[mEnt];
+                          const fname = s?.attributes?.friendly_name || mEnt;
+                          return `
+                            <span class="chip" style="font-size:11px;padding:3px 8px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);display:inline-flex;align-items:center;gap:6px;">
+                              <span title="${mEnt}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${fname}</span>
+                              <code style="font-size:9px;color:var(--text-secondary);font-family:monospace;">${mEnt}</code>
+                              <button type="button" class="btn-micro btn-del-builtin-modal-ent" data-badge-id="${b.id}" data-eidx="${mIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;" title="Entfernen">
+                                <ha-icon icon="mdi:close" style="--mdc-icon-size:12px;"></ha-icon>
+                              </button>
+                            </span>
+                          `;
+                        }).join('')}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+            })()}
           </div>
 
           <div style="border-top:1px solid var(--border-subtle);padding-top:14px;margin-top:14px;">
@@ -1186,7 +1249,7 @@ export const settingsMethods = {
                         <input type="checkbox" class="chk-custom-chip-enabled" data-cidx="${cIdx}" ${isChecked ? 'checked' : ''} style="cursor:pointer;width:15px;height:15px;accent-color:var(--accent);">
                         <span>Aktiv</span>
                       </label>
-                      <div id="topBarChipIconBox_${cIdx}" style="width:28px;height:28px;border-radius:6px;background:rgba(56,189,248,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+                      <div id="topBarChipIconBox_${cIdx}" style="width:28px;height:28px;border-radius:6px;background:rgba(56,189,248,0.12);display:flex;align-items:center;justify-content:center;color:${c.icon_color || 'var(--accent)'};flex-shrink:0;">
                         <ha-icon icon="${safeIcon}" style="--mdc-icon-size:16px;"></ha-icon>
                       </div>
                       <input type="text" class="in-custom-chip-name" data-cidx="${cIdx}" value="${c.name || c.title || ''}" placeholder="Badge Name" style="width:140px;padding:4px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-card);color:var(--text-primary);font-size:12px;font-weight:600;">
@@ -1196,6 +1259,9 @@ export const settingsMethods = {
                           <ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon>
                         </button>
                       </div>
+                      <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;margin:0;" title="Icon-Farbe">
+                        <input type="color" class="cp-custom-chip-color" data-cidx="${cIdx}" value="${c.icon_color || '#38bdf8'}" style="width:26px;height:24px;border:none;border-radius:4px;cursor:pointer;background:transparent;padding:0;">
+                      </label>
                       <button type="button" class="btn btn-sm btn-pick-custom-chip-icon" data-cidx="${cIdx}" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
                         <ha-icon icon="mdi:palette-outline" style="--mdc-icon-size:13px;"></ha-icon> Icon
                       </button>
@@ -1233,69 +1299,6 @@ export const settingsMethods = {
               }).join('');
             })()}
           </div>
-        </div>
-      </div>
-
-      <!-- TAB 2: RAUM-OVERLAYS & SCHALTERZENTRALE (KATEGORIEN) -->
-      <div id="stabContentOverlays" style="${activeTab === 'overlays' ? '' : 'display:none;'}">
-        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">
-          ${this._t('controls_categories_desc') || 'Konfiguriere individuelle Kategorien und Schalter/Helfer pro Raum für die Schalterzentrale und die Raum-Detail-Overlays.'}
-        </div>
-        <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
-          <label style="font-size:12px;font-weight:600;">${this._t('select_room') || 'Raum auswählen'}:</label>
-          <select id="selSettingsOverlayRoom" style="max-width:240px;padding:6px 10px;border-radius:8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);">
-            ${rooms.map((r, i) => `<option value="${i}" ${i === (this._settingsOverlayRoomIdx || 0) ? 'selected' : ''}>${r.name || r.id}</option>`).join('')}
-          </select>
-        </div>
-        <div id="settingsOverlayCategoriesContainer">
-          ${(() => {
-            const rIdx = this._settingsOverlayRoomIdx || 0;
-            const r = rooms[rIdx];
-            if (!r) return '<div>Kein Raum ausgewählt</div>';
-            const cats = this._ensureRoomControlsCategories(r);
-            return `
-              <div style="display:flex;flex-direction:column;gap:12px;">
-                ${cats.map((cat, cIdx) => `
-                  <div class="card-box" style="background:var(--bg-card);border:1px solid var(--border-glass);border-radius:14px;padding:14px 16px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
-                      <div style="display:flex;align-items:center;gap:8px;flex:1;">
-                        <span style="color:var(--accent);font-weight:700;font-size:14px;">${cIdx + 1}.</span>
-                        <input type="text" class="in-cat-name" data-cidx="${cIdx}" value="${cat.name || ''}" placeholder="${this._t('category_name_placeholder') || 'Kategorie Name'}" style="font-weight:700;font-size:14px;padding:6px 12px;border-radius:8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);flex:1;max-width:320px;">
-                      </div>
-                      <div style="display:flex;gap:4px;">
-                        <button type="button" class="btn btn-sm btn-cat-up" data-cidx="${cIdx}" ${cIdx === 0 ? 'disabled' : ''} title="Nach oben">▲</button>
-                        <button type="button" class="btn btn-sm btn-cat-down" data-cidx="${cIdx}" ${cIdx === cats.length - 1 ? 'disabled' : ''} title="Nach unten">▼</button>
-                        <button type="button" class="btn btn-sm btn-del-cat" data-cidx="${cIdx}" style="color:#ef4444;display:inline-flex;align-items:center;" title="${this._t('delete_category') || 'Kategorie löschen'}"><ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon></button>
-                      </div>
-                    </div>
-
-                    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;font-weight:600;">
-                      Zugeordnete Entitäten (${(cat.entities || []).length}):
-                    </div>
-
-                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:36px;padding:8px;background:rgba(0,0,0,0.12);border-radius:10px;border:1px solid var(--border-subtle);align-items:center;">
-                      ${(cat.entities || []).length === 0 ? `<span style="font-size:12px;color:var(--text-secondary);padding:4px;">Keine Entitäten zugeordnet. Klicke auf "+ Entität hinzufügen".</span>` : ''}
-                      ${(cat.entities || []).map((eId, eIdx) => {
-                        const s = this._hass && this._hass.states[eId];
-                        const fname = s?.attributes?.friendly_name || eId;
-                        return `
-                          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-surface);border:1px solid var(--border-glass);border-radius:20px;font-size:12px;color:var(--text-primary);">
-                            <span title="${eId}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${fname}</span>
-                            <button type="button" class="btn-del-cat-ent" data-cidx="${cIdx}" data-eidx="${eIdx}" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:0;font-size:13px;line-height:1;display:flex;align-items:center;" title="Entfernen"><ha-icon icon="mdi:close" style="--mdc-icon-size:13px;"></ha-icon></button>
-                          </span>
-                        `;
-                      }).join('')}
-                    </div>
-
-                    <button type="button" class="btn btn-sm btn-add-cat-ent" data-cidx="${cIdx}" style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">
-                      <ha-icon icon="mdi:plus" style="--mdc-icon-size:14px;"></ha-icon> ${this._t('add_entity') || 'Entität hinzufügen'}
-                    </button>
-                  </div>
-                `).join('')}
-                <button type="button" class="btn btn-sm btn-primary" id="btnAddOverlayCategory" style="align-self:flex-start;padding:8px 16px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:plus" style="--mdc-icon-size:15px;"></ha-icon> ${this._t('add_category') || 'Neue Kategorie hinzufügen'}</button>
-              </div>
-            `;
-          })()}
         </div>
       </div>
 
@@ -1387,6 +1390,69 @@ export const settingsMethods = {
         <button type="button" class="btn btn-sm btn-primary" id="btnAddCustomDockItem" style="margin-top:14px;padding:8px 16px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
           + Eigenen Dock-Punkt mit Modal hinzufügen
         </button>
+      </div>
+
+      <!-- TAB 4: RAUM-OVERLAYS & SCHALTERZENTRALE (KATEGORIEN) -->
+      <div id="stabContentOverlays" style="${activeTab === 'overlays' ? '' : 'display:none;'}">
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">
+          ${this._t('controls_categories_desc') || 'Konfiguriere individuelle Kategorien und Schalter/Helfer pro Raum für die Schalterzentrale und die Raum-Detail-Overlays.'}
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
+          <label style="font-size:12px;font-weight:600;">${this._t('select_room') || 'Raum auswählen'}:</label>
+          <select id="selSettingsOverlayRoom" style="max-width:240px;padding:6px 10px;border-radius:8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);">
+            ${rooms.map((r, i) => `<option value="${i}" ${i === (this._settingsOverlayRoomIdx || 0) ? 'selected' : ''}>${r.name || r.id}</option>`).join('')}
+          </select>
+        </div>
+        <div id="settingsOverlayCategoriesContainer">
+          ${(() => {
+            const rIdx = this._settingsOverlayRoomIdx || 0;
+            const r = rooms[rIdx];
+            if (!r) return '<div>Kein Raum ausgewählt</div>';
+            const cats = this._ensureRoomControlsCategories(r);
+            return `
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                ${cats.map((cat, cIdx) => `
+                  <div class="card-box" style="background:var(--bg-card);border:1px solid var(--border-glass);border-radius:14px;padding:14px 16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
+                      <div style="display:flex;align-items:center;gap:8px;flex:1;">
+                        <span style="color:var(--accent);font-weight:700;font-size:14px;">${cIdx + 1}.</span>
+                        <input type="text" class="in-cat-name" data-cidx="${cIdx}" value="${cat.name || ''}" placeholder="${this._t('category_name_placeholder') || 'Kategorie Name'}" style="font-weight:700;font-size:14px;padding:6px 12px;border-radius:8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);flex:1;max-width:320px;">
+                      </div>
+                      <div style="display:flex;gap:4px;">
+                        <button type="button" class="btn btn-sm btn-cat-up" data-cidx="${cIdx}" ${cIdx === 0 ? 'disabled' : ''} title="Nach oben">▲</button>
+                        <button type="button" class="btn btn-sm btn-cat-down" data-cidx="${cIdx}" ${cIdx === cats.length - 1 ? 'disabled' : ''} title="Nach unten">▼</button>
+                        <button type="button" class="btn btn-sm btn-del-cat" data-cidx="${cIdx}" style="color:#ef4444;display:inline-flex;align-items:center;" title="${this._t('delete_category') || 'Kategorie löschen'}"><ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon></button>
+                      </div>
+                    </div>
+
+                    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;font-weight:600;">
+                      Zugeordnete Entitäten (${(cat.entities || []).length}):
+                    </div>
+
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:36px;padding:8px;background:rgba(0,0,0,0.12);border-radius:10px;border:1px solid var(--border-subtle);align-items:center;">
+                      ${(cat.entities || []).length === 0 ? `<span style="font-size:12px;color:var(--text-secondary);padding:4px;">Keine Entitäten zugeordnet. Klicke auf "+ Entität hinzufügen".</span>` : ''}
+                      ${(cat.entities || []).map((eId, eIdx) => {
+                        const s = this._hass && this._hass.states[eId];
+                        const fname = s?.attributes?.friendly_name || eId;
+                        return `
+                          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-surface);border:1px solid var(--border-glass);border-radius:20px;font-size:12px;color:var(--text-primary);">
+                            <span title="${eId}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${fname}</span>
+                            <button type="button" class="btn-del-cat-ent" data-cidx="${cIdx}" data-eidx="${eIdx}" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:0;font-size:13px;line-height:1;display:flex;align-items:center;" title="Entfernen"><ha-icon icon="mdi:close" style="--mdc-icon-size:13px;"></ha-icon></button>
+                          </span>
+                        `;
+                      }).join('')}
+                    </div>
+
+                    <button type="button" class="btn btn-sm btn-add-cat-ent" data-cidx="${cIdx}" style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">
+                      <ha-icon icon="mdi:plus" style="--mdc-icon-size:14px;"></ha-icon> ${this._t('add_entity') || 'Entität hinzufügen'}
+                    </button>
+                  </div>
+                `).join('')}
+                <button type="button" class="btn btn-sm btn-primary" id="btnAddOverlayCategory" style="align-self:flex-start;padding:8px 16px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><ha-icon icon="mdi:plus" style="--mdc-icon-size:15px;"></ha-icon> ${this._t('add_category') || 'Neue Kategorie hinzufügen'}</button>
+              </div>
+            `;
+          })()}
+        </div>
       </div>
 
       <!-- TAB 4: HELFER-KONTROLLEN -->
@@ -1922,20 +1988,14 @@ export const settingsMethods = {
         </div>
       </div>
 
-      <!-- Floating Vanilla HA Save Bar -->
-      <div id="settingsSaveBar" style="position:sticky;bottom:16px;margin-top:20px;z-index:9999;background:var(--ha-card-background, var(--card-background-color, #1e293b));border:1px solid var(--accent, #38bdf8);box-shadow:0 8px 32px rgba(0,0,0,0.45);border-radius:12px;padding:12px 20px;display:${this._isSettingsDirty ? 'flex' : 'none'};justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-        <span style="font-weight:600;font-size:13px;color:var(--primary-text-color,#fff);display:flex;align-items:center;gap:8px;">
-          <ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:20px;color:#f59e0b;"></ha-icon>
-          ${this._t('unsaved_changes')}
-        </span>
-        <div style="display:flex;gap:10px;">
-          <button type="button" class="btn btn-sm" id="btnDiscardSettings" style="background:transparent;border:1px solid var(--border-subtle, rgba(255,255,255,0.2));color:var(--text-secondary, #94a3b8);cursor:pointer;padding:7px 16px;border-radius:8px;font-weight:600;">
-            ${this._t('discard')}
-          </button>
-          <button type="button" class="btn btn-sm btn-primary" id="btnSaveFloatingSettings" style="background:var(--accent, #0284c7);color:white;border:none;cursor:pointer;padding:7px 20px;border-radius:8px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
-            <ha-icon icon="mdi:content-save" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('save_changes')}
-          </button>
-        </div>
+      <!-- Floating Vanilla HA Save Button -->
+      <div id="settingsFloatingFab" style="position:fixed;bottom:24px;right:24px;z-index:99999;display:${this._isSettingsDirty ? 'flex' : 'none'};align-items:center;gap:10px;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.45));">
+        <button type="button" class="btn" id="btnDiscardSettings" style="background:var(--ha-card-background, var(--card-background-color, #1e293b));border:1px solid var(--border-subtle, rgba(255,255,255,0.2));color:var(--text-secondary, #94a3b8);cursor:pointer;padding:10px 18px;border-radius:28px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;backdrop-filter:blur(12px);">
+          <ha-icon icon="mdi:close" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('discard')}
+        </button>
+        <button type="button" class="btn btn-primary" id="btnSaveFloatingSettings" style="background:var(--accent, #0284c7);color:white;border:none;cursor:pointer;padding:12px 24px;border-radius:28px;font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(2,132,199,0.4);">
+          <ha-icon icon="mdi:content-save" style="--mdc-icon-size:18px;"></ha-icon> ${this._t('save_changes')}
+        </button>
       </div>
 
       <!-- Footer Actions -->
@@ -1945,9 +2005,6 @@ export const settingsMethods = {
         </div>
         <div style="display:flex;gap:10px;margin-left:auto;">
           ${isModal ? `<button class="btn" id="btnCancelSettings">${this._t('cancel')}</button>` : ''}
-          <button class="btn btn-primary" id="btnSaveDashboardSettings" style="display:${this._isSettingsDirty ? 'inline-flex' : 'none'};background:var(--accent);color:white;font-weight:700;padding:8px 20px;border-radius:10px;border:none;cursor:pointer;align-items:center;gap:6px;">
-            <ha-icon icon="mdi:content-save" style="--mdc-icon-size:16px;"></ha-icon> ${this._t('save_changes')}
-          </button>
         </div>
       </div>
     `;
@@ -3106,6 +3163,110 @@ export const settingsMethods = {
       };
     });
 
+    // Built-in Badges & Custom Badges Color & Modal Handlers
+    container.querySelectorAll('.chk-builtin-badge-enabled').forEach(chk => {
+      chk.onchange = () => {
+        const bId = chk.getAttribute('data-badge-id');
+        const key = chk.getAttribute('data-key');
+        if (key) this._config[key] = chk.checked;
+        if (bId) {
+          if (!this._config.top_bar_badges) this._config.top_bar_badges = {};
+          if (!this._config.top_bar_badges[bId]) this._config.top_bar_badges[bId] = {};
+          this._config.top_bar_badges[bId].enabled = chk.checked;
+        }
+        this._markSettingsDirty(container);
+      };
+    });
+
+    container.querySelectorAll('.cp-builtin-badge-color').forEach(cp => {
+      cp.oninput = (e) => {
+        const bId = cp.getAttribute('data-badge-id');
+        if (bId) {
+          if (!this._config.top_bar_badges) this._config.top_bar_badges = {};
+          if (!this._config.top_bar_badges[bId]) this._config.top_bar_badges[bId] = {};
+          this._config.top_bar_badges[bId].icon_color = e.target.value;
+          const preview = container.querySelector('#builtinBadgeIconPreview_' + bId);
+          if (preview) preview.style.color = e.target.value;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
+    container.querySelectorAll('.btn-toggle-builtin-modal').forEach(btn => {
+      btn.onclick = () => {
+        const bId = btn.getAttribute('data-badge-id');
+        const panel = container.querySelector('#builtinModalPanel_' + bId);
+        const chevron = btn.querySelector('.chevron-builtin-modal');
+        if (panel) {
+          const isHidden = panel.style.display === 'none';
+          panel.style.display = isHidden ? 'flex' : 'none';
+          if (chevron) {
+            chevron.setAttribute('icon', isHidden ? 'mdi:chevron-up' : 'mdi:chevron-down');
+          }
+        }
+      };
+    });
+
+    container.querySelectorAll('.btn-add-builtin-modal-entity').forEach(btn => {
+      btn.onclick = () => {
+        const bId = btn.getAttribute('data-badge-id');
+        if (!this._config.top_bar_badges?.[bId]) {
+          if (typeof this._ensureTopBarBadgeDefaults === 'function') this._ensureTopBarBadgeDefaults();
+        }
+        const bConf = this._config.top_bar_badges?.[bId];
+        if (!bConf) return;
+        this._showEntityPicker({
+          currentValue: '',
+          defaultDomain: 'all',
+          onSelect: (selectedId) => {
+            if (selectedId) {
+              if (!Array.isArray(bConf.modal_entities)) bConf.modal_entities = [];
+              if (!bConf.modal_entities.includes(selectedId)) {
+                bConf.modal_entities.push(selectedId);
+                bConf.initialized = true;
+                this._markSettingsDirty(container);
+                this._renderSettingsContent(container, isModal);
+                setTimeout(() => {
+                  const p = container.querySelector('#builtinModalPanel_' + bId);
+                  if (p) p.style.display = 'flex';
+                }, 50);
+              }
+            }
+          }
+        });
+      };
+    });
+
+    container.querySelectorAll('.btn-del-builtin-modal-ent').forEach(btn => {
+      btn.onclick = () => {
+        const bId = btn.getAttribute('data-badge-id');
+        const eIdx = parseInt(btn.getAttribute('data-eidx'));
+        const bConf = this._config.top_bar_badges?.[bId];
+        if (bConf && Array.isArray(bConf.modal_entities)) {
+          bConf.modal_entities.splice(eIdx, 1);
+          bConf.initialized = true;
+          this._markSettingsDirty(container);
+          this._renderSettingsContent(container, isModal);
+          setTimeout(() => {
+            const p = container.querySelector('#builtinModalPanel_' + bId);
+            if (p) p.style.display = 'flex';
+          }, 50);
+        }
+      };
+    });
+
+    container.querySelectorAll('.cp-custom-chip-color').forEach(cp => {
+      cp.oninput = (e) => {
+        const cIdx = parseInt(cp.getAttribute('data-cidx'));
+        if (this._config.top_bar_custom_chips?.[cIdx]) {
+          this._config.top_bar_custom_chips[cIdx].icon_color = e.target.value;
+          const iconBox = container.querySelector('#topBarChipIconBox_' + cIdx);
+          if (iconBox) iconBox.style.color = e.target.value;
+          this._markSettingsDirty(container);
+        }
+      };
+    });
+
     // Live Preview for Appearance Controls
     const selThemeMode = container.querySelector('#cfgThemeMode');
     if (selThemeMode) {
@@ -3435,9 +3596,32 @@ export const settingsMethods = {
       if (cAutoDock && this._config.dock) this._config.dock.auto_detect = cAutoDock.checked;
 
       // Collect Top-Bar settings
+      if (!this._config.top_bar_badges) this._config.top_bar_badges = {};
+      container.querySelectorAll('.chk-builtin-badge-enabled').forEach(chk => {
+        const bId = chk.getAttribute('data-badge-id');
+        const key = chk.getAttribute('data-key');
+        if (key) this._config[key] = chk.checked;
+        if (bId) {
+          if (!this._config.top_bar_badges[bId]) this._config.top_bar_badges[bId] = {};
+          this._config.top_bar_badges[bId].enabled = chk.checked;
+        }
+      });
+      container.querySelectorAll('.cp-builtin-badge-color').forEach(cp => {
+        const bId = cp.getAttribute('data-badge-id');
+        if (bId) {
+          if (!this._config.top_bar_badges[bId]) this._config.top_bar_badges[bId] = {};
+          this._config.top_bar_badges[bId].icon_color = cp.value;
+        }
+      });
       container.querySelectorAll('.chk-top-bar-badge').forEach(chk => {
         const key = chk.getAttribute('data-key');
         if (key) this._config[key] = chk.checked;
+      });
+      container.querySelectorAll('.cp-custom-chip-color').forEach(cp => {
+        const cIdx = parseInt(cp.getAttribute('data-cidx'));
+        if (this._config.top_bar_custom_chips?.[cIdx]) {
+          this._config.top_bar_custom_chips[cIdx].icon_color = cp.value;
+        }
       });
       const chkTPersons = container.querySelector('#chkTopPersons');
       if (chkTPersons) this._config.top_bar_show_persons = chkTPersons.checked;
@@ -3592,27 +3776,21 @@ export const settingsMethods = {
       }
     };
 
-    const btnSave = container.querySelector('#btnSaveDashboardSettings');
-    if (btnSave) btnSave.onclick = doSave;
     const btnSaveFloat = container.querySelector('#btnSaveFloatingSettings');
     if (btnSaveFloat) btnSaveFloat.onclick = doSave;
   },
 
   _markSettingsDirty(container) {
     this._isSettingsDirty = true;
-    const bar = container?.querySelector('#settingsSaveBar') || this.shadowRoot?.querySelector('#settingsSaveBar');
-    if (bar) bar.style.display = 'flex';
-    const footerSave = container?.querySelector('#btnSaveDashboardSettings') || this.shadowRoot?.querySelector('#btnSaveDashboardSettings');
-    if (footerSave) footerSave.style.display = 'inline-flex';
+    const fab = container?.querySelector('#settingsFloatingFab') || this.shadowRoot?.querySelector('#settingsFloatingFab');
+    if (fab) fab.style.display = 'flex';
   },
 
   _clearSettingsDirty(container) {
     this._isSettingsDirty = false;
     this._cleanConfigSnapshot = JSON.parse(JSON.stringify(this._config));
-    const bar = container?.querySelector('#settingsSaveBar') || this.shadowRoot?.querySelector('#settingsSaveBar');
-    if (bar) bar.style.display = 'none';
-    const footerSave = container?.querySelector('#btnSaveDashboardSettings') || this.shadowRoot?.querySelector('#btnSaveDashboardSettings');
-    if (footerSave) footerSave.style.display = 'none';
+    const fab = container?.querySelector('#settingsFloatingFab') || this.shadowRoot?.querySelector('#settingsFloatingFab');
+    if (fab) fab.style.display = 'none';
   },
 
   _discardSettingsChanges(container, isModal) {

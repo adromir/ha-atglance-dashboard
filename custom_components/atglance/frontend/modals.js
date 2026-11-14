@@ -17,7 +17,10 @@ export const modalMethods = {
 
     title.innerHTML = `${this._icon('user', { size: 22, cls: 'icon-security', style: 'margin-right:8px;' })} ${this._t('residents')}`;
 
-    const configuredPersons = this._config?.top_bar_persons;
+    const badgePersons = this._config?.top_bar_badges?.persons;
+    const configuredPersons = (badgePersons?.initialized && Array.isArray(badgePersons.modal_entities))
+      ? badgePersons.modal_entities
+      : this._config?.top_bar_persons;
     const allPersonIds = Object.keys(this._hass.states).filter(e => e.startsWith('person.'));
     const activePersonIds = (Array.isArray(configuredPersons) && configuredPersons.length > 0)
       ? configuredPersons.filter(id => this._hass.states[id])
@@ -1174,7 +1177,7 @@ export const modalMethods = {
         const chipTitle = chip?.title || chip?.name || 'Badge';
         const iconName = chip?.icon || 'mdi:tag-outline';
         if (title) {
-          title.innerHTML = `${this._icon(iconName, { size: 22, style: 'margin-right:8px;color:var(--accent);' })} <span>${chipTitle}</span>`;
+          title.innerHTML = `${this._icon(iconName, { size: 22, style: `margin-right:8px;color:${chip?.icon_color || 'var(--accent)'};` })} <span>${chipTitle}</span>`;
         }
         let entities = Array.isArray(chip?.modal_entities) ? [...chip.modal_entities] : (chip?.entity_id ? [chip.entity_id] : []);
         entities = [...new Set(entities)].filter(eId => Boolean(this._hass.states[eId]));
@@ -1200,13 +1203,54 @@ export const modalMethods = {
         return;
       }
 
+      if (type === 'media') {
+        const badgeConf = this._config?.top_bar_badges?.media;
+        const iconColor = badgeConf?.icon_color || '#a855f7';
+        if (title) {
+          title.innerHTML = `<ha-icon icon="mdi:music" style="--mdc-icon-size:22px;margin-right:8px;color:${iconColor};vertical-align:middle;"></ha-icon> <span>${this._t('multimedia') || 'Medienwiedergabe'}${this._getModalAreaSuffix()}</span>`;
+        }
+
+        let entities = [];
+        if (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities)) {
+          entities = badgeConf.modal_entities.filter(eId => Boolean(this._hass.states[eId]));
+        } else {
+          entities = Object.keys(this._hass.states).filter(e => e.startsWith('media_player.'));
+        }
+
+        if (entities.length === 0) {
+          body.innerHTML = `
+            <div style="text-align:center;padding:32px 16px;color:var(--text-secondary);font-size:13px;">
+              <ha-icon icon="mdi:music-off" style="--mdc-icon-size:32px;opacity:0.6;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;"></ha-icon>
+              <div>Keine Mediaplayer konfiguriert oder im System gefunden.</div>
+            </div>
+          `;
+          return;
+        }
+
+        body.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:12px;">
+              ${entities.map(eId => this._renderGenericEntityRow(eId, this._hass.states[eId])).join('')}
+            </div>
+          </div>
+        `;
+        this._bindInteractiveRows(body);
+        return;
+      }
+
       if (type === 'lighting') {
       const room = this._activeModalContext;
-      title.innerHTML = `${this._icon('light', { size: 22, cls: 'icon-light', style: 'margin-right:8px;' })} ${this._t('lighting_control')}${this._getModalAreaSuffix()}`;
+      const badgeConf = this._config?.top_bar_badges?.lights;
+      const iconColor = badgeConf?.icon_color || '#f59e0b';
+      title.innerHTML = `${this._icon('light', { size: 22, cls: 'icon-light', style: `margin-right:8px;color:${iconColor};` })} ${this._t('lighting_control')}${this._getModalAreaSuffix()}`;
 
       const rooms = this._config.rooms || [];
       const selectedRoomId = room?.id || this._selectedLightingRoomId || '_all';
       this._selectedLightingRoomId = selectedRoomId;
+
+      const customLightEnts = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities))
+        ? new Set(badgeConf.modal_entities.map(e => e.toLowerCase().trim()))
+        : null;
 
       // Deduplicate lights strictly
       const seenLights = new Set();
@@ -1214,12 +1258,14 @@ export const modalMethods = {
 
       const allLightsEntity = (this._config.all_lights_entity || 'light.licht_wohnung').toLowerCase();
       if (this._config.all_lights_entity && this._hass.states[this._config.all_lights_entity]) {
-        seenLights.add(allLightsEntity);
-        allLights.push({
-          id: this._config.all_lights_entity,
-          name: this._hass.states[this._config.all_lights_entity].attributes?.friendly_name || this._t('all_lights_apartment'),
-          isAll: true
-        });
+        if (!customLightEnts || customLightEnts.has(allLightsEntity)) {
+          seenLights.add(allLightsEntity);
+          allLights.push({
+            id: this._config.all_lights_entity,
+            name: this._hass.states[this._config.all_lights_entity].attributes?.friendly_name || this._t('all_lights_apartment'),
+            isAll: true
+          });
+        }
       }
 
       // Group lights by room
@@ -1230,6 +1276,7 @@ export const modalMethods = {
         rLights.forEach(lId => {
           const norm = lId.trim().toLowerCase();
           if (norm === allLightsEntity || seenLights.has(norm)) return;
+          if (customLightEnts && !customLightEnts.has(norm)) return;
           if (this._hass.states[lId]) {
             seenLights.add(norm);
             groupLights.push({
@@ -1248,6 +1295,30 @@ export const modalMethods = {
           roomLightGroups.push({ room: r, lights: groupLights });
         }
       });
+
+      // Also include any custom configured lights that were not in any room
+      if (customLightEnts && badgeConf?.modal_entities) {
+        const extraLights = [];
+        badgeConf.modal_entities.forEach(lId => {
+          const norm = (lId || '').trim().toLowerCase();
+          if (!seenLights.has(norm) && this._hass.states[lId]) {
+            seenLights.add(norm);
+            extraLights.push({
+              id: lId,
+              name: this._hass.states[lId].attributes?.friendly_name || lId,
+              roomId: '_custom'
+            });
+            allLights.push({
+              id: lId,
+              name: this._hass.states[lId].attributes?.friendly_name || lId,
+              roomId: '_custom'
+            });
+          }
+        });
+        if (extraLights.length > 0) {
+          roomLightGroups.push({ room: { id: '_custom', name: this._t('other_devices') || 'Weitere Leuchten' }, lights: extraLights });
+        }
+      }
 
       // Pick displayed lights based on selected room filter
       const activeFilter = selectedRoomId;
@@ -1349,28 +1420,38 @@ export const modalMethods = {
         };
       });
     } else if (type === 'climate') {
-      title.innerHTML = `${this._icon('climate', { size: 22, cls: 'icon-climate', style: 'margin-right:8px;' })} ${this._t('climate_control')}${this._getModalAreaSuffix()}`;
+      const badgeConf = this._config?.top_bar_badges?.climate;
+      const iconColor = badgeConf?.icon_color || '#38bdf8';
+      title.innerHTML = `${this._icon('climate', { size: 22, cls: 'icon-climate', style: `margin-right:8px;color:${iconColor};` })} ${this._t('climate_control')}${this._getModalAreaSuffix()}`;
       const thermostats = [];
       const seenClimates = new Set();
+      const customClimateEnts = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities))
+        ? new Set(badgeConf.modal_entities.map(e => e.toLowerCase().trim()))
+        : null;
+
       (this._config.rooms || []).forEach(r => {
         if (r.climate_entity && this._hass.states[r.climate_entity] && !seenClimates.has(r.climate_entity)) {
-          seenClimates.add(r.climate_entity);
-          thermostats.push({
-            id: r.climate_entity,
-            roomName: r.name || r.id,
-            tempSensor: r.temp_entity || r.climate_entity,
-            targetHelper: r.target_temp_entity || null
-          });
+          if (!customClimateEnts || customClimateEnts.has(r.climate_entity.toLowerCase().trim())) {
+            seenClimates.add(r.climate_entity);
+            thermostats.push({
+              id: r.climate_entity,
+              roomName: r.name || r.id,
+              tempSensor: r.temp_entity || r.climate_entity,
+              targetHelper: r.target_temp_entity || null
+            });
+          }
         }
       });
       Object.keys(this._hass.states).filter(e => e.startsWith('climate.') && !seenClimates.has(e)).forEach(cId => {
-        seenClimates.add(cId);
-        thermostats.push({
-          id: cId,
-          roomName: this._hass.states[cId].attributes?.friendly_name || cId,
-          tempSensor: cId,
-          targetHelper: null
-        });
+        if (!customClimateEnts || customClimateEnts.has(cId.toLowerCase().trim())) {
+          seenClimates.add(cId);
+          thermostats.push({
+            id: cId,
+            roomName: this._hass.states[cId].attributes?.friendly_name || cId,
+            tempSensor: cId,
+            targetHelper: null
+          });
+        }
       });
 
       if (!this._historyFetched && thermostats.length > 0) {
@@ -1557,10 +1638,17 @@ export const modalMethods = {
         };
       });
     } else if (type === 'security') {
-      title.innerHTML = `${this._icon('lock-closed', { size: 22, cls: 'icon-security', style: 'margin-right:8px;' })} ${this._t('security')}${this._getModalAreaSuffix()}`;
-      const lockEntity = this._config.lock_entity || Object.keys(this._hass.states).find(e => e.startsWith('lock.'));
+      const badgeConf = this._config?.top_bar_badges?.lock;
+      const iconColor = badgeConf?.icon_color || '#10b981';
+      title.innerHTML = `${this._icon('lock-closed', { size: 22, cls: 'icon-security', style: `margin-right:8px;color:${iconColor};` })} ${this._t('security')}${this._getModalAreaSuffix()}`;
+      const customLockEnts = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities))
+        ? new Set(badgeConf.modal_entities.map(e => e.toLowerCase().trim()))
+        : null;
+      const configuredLock = customLockEnts ? badgeConf.modal_entities.find(e => e.startsWith('lock.')) : null;
+      const lockEntity = configuredLock || this._config.lock_entity || Object.keys(this._hass.states).find(e => e.startsWith('lock.'));
       const lockObj = lockEntity ? this._hass.states[lockEntity] : null;
       const allDoorContacts = Object.keys(this._hass.states).filter(e => {
+        if (customLockEnts) return customLockEnts.has(e.toLowerCase().trim()) && !e.startsWith('lock.');
         if (!e.startsWith('binary_sensor.')) return false;
         const dc = (this._hass.states[e].attributes?.device_class || '').toLowerCase();
         return dc === 'door' || dc === 'window' || dc === 'opening' || e.includes('fenster') || e.includes('turkontakt') || e.includes('door') || e.includes('window');
@@ -1652,7 +1740,9 @@ export const modalMethods = {
         if (lockEntity) this._callService('lock', 'unlock', { entity_id: lockEntity });
       };
     } else if (type === 'alarmo') {
-      title.innerHTML = `${this._icon('shield', { size: 22, cls: 'icon-alarmo', style: 'margin-right:8px;' })} ${this._t('alarmo')}${this._getModalAreaSuffix()}`;
+      const badgeConf = this._config?.top_bar_badges?.alarmo;
+      const iconColor = badgeConf?.icon_color || '#6366f1';
+      title.innerHTML = `${this._icon('shield', { size: 22, cls: 'icon-alarmo', style: `margin-right:8px;color:${iconColor};` })} ${this._t('alarmo')}${this._getModalAreaSuffix()}`;
       const alarmo = (this._getAlarmEntity() ? this._hass.states[this._getAlarmEntity()] : null);
       const st = alarmo ? alarmo.state : 'disarmed';
 
@@ -2017,11 +2107,34 @@ export const modalMethods = {
 
       this._bindInteractiveRows(body);
     } else if (type === 'warnings' || type === 'alerts') {
-      title.innerHTML = `${this._icon('alert-circle', { size: 22, color: '#ef4444', style: 'margin-right:8px;' })} ${this._t('warnings_center_title') || 'Warnzentrale'}${this._getModalAreaSuffix()}`;
+      const badgeConf = this._config?.top_bar_badges?.warnings;
+      const iconColor = badgeConf?.icon_color || '#ef4444';
+      title.innerHTML = `${this._icon('alert-circle', { size: 22, color: iconColor, style: 'margin-right:8px;' })} ${this._t('warnings_center_title') || 'Warnzentrale'}${this._getModalAreaSuffix()}`;
 
       const criticalWarnings = [];
       const warnings = [];
       const notices = [];
+
+      const customWarnEnts = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities))
+        ? badgeConf.modal_entities
+        : null;
+      if (customWarnEnts) {
+        customWarnEnts.forEach(eId => {
+          const s = this._hass.states[eId];
+          if (!s) return;
+          const fname = s.attributes?.friendly_name || eId;
+          const st = s.state;
+          if (st === 'on' || st === 'problem' || st === 'alarm' || st === 'triggered') {
+            criticalWarnings.push({
+              title: `${fname}: ${st.toUpperCase()}`,
+              desc: `Sensor meldet aktiven Zustand (${st})`,
+              entity_id: eId,
+              icon: 'mdi:alert',
+              iconColor: '#ef4444'
+            });
+          }
+        });
+      }
 
       // 1. Weather / Civil Protection / DWD / NINA
       Object.keys(this._hass.states).forEach(eId => {
@@ -2270,7 +2383,9 @@ export const modalMethods = {
       });
       this._bindInteractiveRows(body);
     } else if (type === 'weather') {
-      title.innerHTML = `${this._icon('weather-partlycloudy', { size: 22, cls: 'icon-weather', style: 'margin-right:8px;' })} ${this._t('weather_modal_title')}`;
+      const badgeConf = this._config?.top_bar_badges?.weather;
+      const iconColor = badgeConf?.icon_color || '#38bdf8';
+      title.innerHTML = `${this._icon('weather-partlycloudy', { size: 22, cls: 'icon-weather', style: `margin-right:8px;color:${iconColor};` })} ${this._t('weather_modal_title')}`;
 
       const existingIframe = body.querySelector('#weatherRadarIframe');
       if (existingIframe) {
@@ -2279,7 +2394,11 @@ export const modalMethods = {
         return;
       }
 
-      const wEntity = this._getWeatherEntity();
+      const customWeatherEnts = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities))
+        ? badgeConf.modal_entities
+        : null;
+      const configuredWeather = customWeatherEnts ? customWeatherEnts.find(e => e.startsWith('weather.')) : null;
+      const wEntity = configuredWeather || this._getWeatherEntity();
       const w = wEntity ? this._hass.states[wEntity] : null;
       if (!w) {
         body.innerHTML = `<div>${this._t('no_data_available')}</div>`;

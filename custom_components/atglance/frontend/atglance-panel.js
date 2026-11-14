@@ -99,6 +99,7 @@ class AtGlancePanel extends HTMLElement {
     try {
       const res = await this._hass.callWS({ type: 'atglance/config/get' });
       this._config = (res && res.config) ? res.config : { rooms: [], dock: { auto_detect: true, items: [] } };
+      this._ensureTopBarBadgeDefaults();
       this._summary = (res && res.summary) ? res.summary : null;
       this._configLoaded = true;
       this._initialRenderDone = true;
@@ -712,7 +713,11 @@ class AtGlancePanel extends HTMLElement {
         weatherIconEl.innerHTML = this._getWeatherIcon(w.state, 30, 'icon-weather');
       }
       if (chipWeather && temp !== undefined) {
-        chipWeather.innerHTML = `<span class="chip-dot dot-blue"></span> ${this._getWeatherIcon(w.state, 15, 'icon-weather')} ${this._hass?.config?.location_name || w.attributes?.friendly_name || ''} ${temp}°C`;
+        const weatherColor = this._config?.top_bar_badges?.weather?.icon_color;
+        const iconWrap = weatherColor
+          ? `<span style="color:${weatherColor};display:inline-flex;align-items:center;margin-right:4px;">${this._getWeatherIcon(w.state, 15, 'icon-weather')}</span>`
+          : `${this._getWeatherIcon(w.state, 15, 'icon-weather')}`;
+        chipWeather.innerHTML = `<span class="chip-dot dot-blue"></span> ${iconWrap} ${this._hass?.config?.location_name || w.attributes?.friendly_name || ''} ${temp}°C`;
       }
 
       // Sidebar Weather Mini Pills
@@ -952,9 +957,10 @@ class AtGlancePanel extends HTMLElement {
         const name = c.name || c.title || s?.attributes?.friendly_name || c.entity_id || 'Badge';
         const val = s ? (s.state + (s.attributes?.unit_of_measurement ? ' ' + s.attributes.unit_of_measurement : '')) : '';
         const iconName = c.icon || 'mdi:tag-outline';
+        const iconColor = c.icon_color || 'var(--accent)';
         return `
           <div class="chip chip-custom" data-chip-idx="${cIdx}" title="${name}">
-            <span style="display:inline-flex;align-items:center;">${this._icon(iconName, { size: 14, style: 'margin-right:4px;' })}</span>
+            <span style="display:inline-flex;align-items:center;color:${iconColor};">${this._icon(iconName, { size: 14, style: 'margin-right:4px;' })}</span>
             <span>${name}${val ? `: <strong>${val}</strong>` : ''}</span>
           </div>
         `;
@@ -976,10 +982,14 @@ class AtGlancePanel extends HTMLElement {
     // Lights Chip (Counts only individual rooms, strictly excluding Wohnung aggregate)
     const chipLights = this.shadowRoot.getElementById('chipLights');
     if (chipLights) {
-      if (this._config.top_bar_show_lights === false) {
+      const badgeConf = this._config?.top_bar_badges?.lights;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_lights !== false);
+      if (!isEnabled) {
         chipLights.style.display = 'none';
       } else {
         chipLights.style.display = 'inline-flex';
+        const iconColor = badgeConf?.icon_color;
+        const iconStyle = iconColor ? `color:${iconColor};margin-right:4px;` : 'margin-right:4px;';
         const activeLightEntities = new Set();
         (this._config.rooms || []).forEach(r => {
           if (r.id === 'wohnung') return;
@@ -1003,9 +1013,9 @@ class AtGlancePanel extends HTMLElement {
         const activeLightsCount = activeLightEntities.size;
         if (activeLightsCount > 0) {
           const lightText = activeLightsCount === 1 ? this._t('light_on_single') : this._t('lights_on_multi');
-          chipLights.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('light', { size: 14, cls: 'icon-light', style: 'margin-right:4px;' })} ${activeLightsCount} ${lightText}`;
+          chipLights.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('light', { size: 14, cls: 'icon-light', style: iconStyle })} ${activeLightsCount} ${lightText}`;
         } else {
-          chipLights.innerHTML = `<span class="chip-dot dot-gray"></span> ${this._icon('light', { size: 14, style: 'margin-right:4px;' })} ${this._t('lights_off')}`;
+          chipLights.innerHTML = `<span class="chip-dot dot-gray"></span> ${this._icon('light', { size: 14, style: iconStyle })} ${this._t('lights_off')}`;
         }
       }
     }
@@ -1013,8 +1023,10 @@ class AtGlancePanel extends HTMLElement {
     // Warning / DWD / NINA Chip
     const chipWarning = this.shadowRoot.getElementById('chipWarning');
     if (chipWarning) {
+      const badgeConf = this._config?.top_bar_badges?.warnings;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_warnings !== false);
       let activeWarning = null;
-      if (this._config.top_bar_show_warnings !== false) {
+      if (isEnabled) {
         Object.keys(this._hass.states).forEach(eId => {
           if (eId.startsWith('binary_sensor.warning_') || eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings') || eId.includes('nina')) {
             const s = this._hass.states[eId];
@@ -1025,8 +1037,9 @@ class AtGlancePanel extends HTMLElement {
         });
       }
       if (activeWarning) {
+        const iconColor = badgeConf?.icon_color || '#ef4444';
         chipWarning.style.display = 'inline-flex';
-        chipWarning.innerHTML = `<span class="chip-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;"></span> ${this._icon('alert-circle', { size: 14, color: '#ef4444', style: 'margin-right:4px;' })} ${activeWarning}`;
+        chipWarning.innerHTML = `<span class="chip-dot" style="background:${iconColor};box-shadow:0 0 8px ${iconColor};"></span> ${this._icon('alert-circle', { size: 14, color: iconColor, style: 'margin-right:4px;' })} ${activeWarning}`;
       } else {
         chipWarning.style.display = 'none';
       }
@@ -1035,8 +1048,10 @@ class AtGlancePanel extends HTMLElement {
     // Media Playing Chip
     const chipMedia = this.shadowRoot.getElementById('chipMedia');
     if (chipMedia) {
+      const badgeConf = this._config?.top_bar_badges?.media;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_media !== false);
       let playingPlayer = null;
-      if (this._config.top_bar_show_media !== false) {
+      if (isEnabled) {
         Object.keys(this._hass.states).forEach(eId => {
           if (eId.startsWith('media_player.')) {
             const s = this._hass.states[eId];
@@ -1046,10 +1061,16 @@ class AtGlancePanel extends HTMLElement {
           }
         });
       }
-      if (playingPlayer) {
-        chipMedia.style.display = 'inline-flex';
-        const title = playingPlayer.attributes?.media_title || playingPlayer.attributes?.friendly_name || 'Musik';
-        chipMedia.innerHTML = `<span class="chip-dot dot-blue" style="background:#a855f7;box-shadow:0 0 8px #a855f7;"></span> <ha-icon icon="mdi:music" style="--mdc-icon-size:14px;margin-right:3px;vertical-align:middle;"></ha-icon> ${title}`;
+      if (isEnabled) {
+        const iconColor = badgeConf?.icon_color || '#a855f7';
+        if (playingPlayer) {
+          chipMedia.style.display = 'inline-flex';
+          const title = playingPlayer.attributes?.media_title || playingPlayer.attributes?.friendly_name || 'Musik';
+          chipMedia.innerHTML = `<span class="chip-dot dot-blue" style="background:${iconColor};box-shadow:0 0 8px ${iconColor};"></span> <ha-icon icon="mdi:music" style="--mdc-icon-size:14px;margin-right:3px;vertical-align:middle;color:${iconColor};"></ha-icon> ${title}`;
+        } else {
+          chipMedia.style.display = 'inline-flex';
+          chipMedia.innerHTML = `<span class="chip-dot dot-gray"></span> <ha-icon icon="mdi:music" style="--mdc-icon-size:14px;margin-right:3px;vertical-align:middle;color:${iconColor};"></ha-icon> ${this._t('multimedia') || 'Medien'}`;
+        }
       } else {
         chipMedia.style.display = 'none';
       }
@@ -1058,10 +1079,14 @@ class AtGlancePanel extends HTMLElement {
     // Climate Chip (calculate active heating radiators & average temperature)
     const chipClimate = this.shadowRoot.getElementById('chipClimate');
     if (chipClimate) {
-      if (this._config.top_bar_show_climate === false) {
+      const badgeConf = this._config?.top_bar_badges?.climate;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_climate !== false);
+      if (!isEnabled) {
         chipClimate.style.display = 'none';
       } else {
         chipClimate.style.display = 'inline-flex';
+        const iconColor = badgeConf?.icon_color;
+        const iconStyle = iconColor ? `color:${iconColor};margin-right:4px;` : 'margin-right:4px;';
         const climateIds = (this._config.rooms || [])
           .map(r => r.climate_entity)
           .filter(Boolean);
@@ -1080,9 +1105,9 @@ class AtGlancePanel extends HTMLElement {
         const avgT = temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1).replace('.', ',') : '21,0';
         if (heatingCount > 0) {
           const heatVerb = heatingCount === 1 ? this._t('heating_single') : this._t('heating_multi');
-          chipClimate.innerHTML = `<span class="chip-dot dot-amber" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b;"></span> ${this._icon('flame', { size: 14, color: '#f59e0b', cls: 'pulsing-flame', style: 'margin-right:4px;' })} ${heatingCount} ${heatVerb} • Ø ${avgT}°C`;
+          chipClimate.innerHTML = `<span class="chip-dot dot-amber" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b;"></span> ${this._icon('flame', { size: 14, color: iconColor || '#f59e0b', cls: 'pulsing-flame', style: iconStyle })} ${heatingCount} ${heatVerb} • Ø ${avgT}°C`;
         } else {
-          chipClimate.innerHTML = `<span class="chip-dot dot-blue"></span> ${this._icon('climate', { size: 14, cls: 'icon-climate', style: 'margin-right:4px;' })} ${this._t('all_eco') || 'Alle Eco'} • Ø ${avgT}°C`;
+          chipClimate.innerHTML = `<span class="chip-dot dot-blue"></span> ${this._icon('climate', { size: 14, cls: 'icon-climate', style: iconStyle })} ${this._t('all_eco') || 'Alle Eco'} • Ø ${avgT}°C`;
         }
       }
     }
@@ -1091,21 +1116,25 @@ class AtGlancePanel extends HTMLElement {
     const lockEntity = this._config.lock_entity || 'lock.wohnungsschloss';
     const chipLock = this.shadowRoot.getElementById('chipLock');
     if (chipLock) {
-      if (this._config.top_bar_show_lock === false) {
+      const badgeConf = this._config?.top_bar_badges?.lock;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_lock !== false);
+      if (!isEnabled) {
         chipLock.style.display = 'none';
       } else {
         chipLock.style.display = 'inline-flex';
+        const iconColor = badgeConf?.icon_color;
+        const iconStyle = iconColor ? `color:${iconColor};margin-right:4px;` : 'margin-right:4px;';
         const lockObj = this._hass.states[lockEntity];
         const doorObj = this._hass.states['binary_sensor.turkontakt_hausture_contact'];
         const isLocked = lockObj && lockObj.state === 'locked';
         const isDoorOpen = doorObj && doorObj.state === 'on';
 
         if (isDoorOpen) {
-          chipLock.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('door-open', { size: 14, cls: 'icon-climate', style: 'margin-right:4px;' })} ${this._t('door_open')}`;
+          chipLock.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('door-open', { size: 14, cls: 'icon-climate', style: iconStyle })} ${this._t('door_open')}`;
         } else if (!isLocked) {
-          chipLock.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('lock-open', { size: 14, cls: 'icon-light', style: 'margin-right:4px;' })} ${this._t('door_closed_unlocked')}`;
+          chipLock.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('lock-open', { size: 14, cls: 'icon-light', style: iconStyle })} ${this._t('door_closed_unlocked')}`;
         } else {
-          chipLock.innerHTML = `<span class="chip-dot dot-green"></span> ${this._icon('lock-closed', { size: 14, cls: 'icon-security', style: 'margin-right:4px;' })} ${this._t('door_closed_locked')}`;
+          chipLock.innerHTML = `<span class="chip-dot dot-green"></span> ${this._icon('lock-closed', { size: 14, cls: 'icon-security', style: iconStyle })} ${this._t('door_closed_locked')}`;
         }
       }
     }
@@ -1113,19 +1142,23 @@ class AtGlancePanel extends HTMLElement {
     // Alarmo Chip
     const chipAlarmo = this.shadowRoot.getElementById('chipAlarmo');
     if (chipAlarmo) {
+      const badgeConf = this._config?.top_bar_badges?.alarmo;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_alarmo !== false);
       const alEnt = this._getAlarmEntity();
       const al = alEnt ? this._hass.states[alEnt] : null;
-      if (this._config.top_bar_show_alarmo === false || !al) {
+      if (!isEnabled || !al) {
         chipAlarmo.style.display = 'none';
       } else {
         chipAlarmo.style.display = 'inline-flex';
+        const iconColor = badgeConf?.icon_color;
+        const iconStyle = iconColor ? `color:${iconColor};margin-right:4px;` : 'margin-right:4px;';
         const ast = al.state || 'disarmed';
         if (ast === 'disarmed') {
-          chipAlarmo.innerHTML = `<span class="chip-dot dot-green"></span> ${this._icon('shield-check', { size: 14, cls: 'icon-security', style: 'margin-right:4px;' })} ${this._t('alarmo')}: ${this._t('deactivated')}`;
+          chipAlarmo.innerHTML = `<span class="chip-dot dot-green"></span> ${this._icon('shield-check', { size: 14, cls: 'icon-security', style: iconStyle })} ${this._t('alarmo')}: ${this._t('deactivated')}`;
         } else if (ast === 'triggered') {
-          chipAlarmo.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('siren', { size: 14, cls: 'icon-temp', style: 'margin-right:4px;' })} ${this._t('alarmo')}: ${this._t('alarm_triggered')}`;
+          chipAlarmo.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('siren', { size: 14, cls: 'icon-temp', style: iconStyle })} ${this._t('alarmo')}: ${this._t('alarm_triggered')}`;
         } else {
-          chipAlarmo.innerHTML = `<span class="chip-dot dot-blue"></span> ${this._icon('shield', { size: 14, cls: 'icon-alarmo', style: 'margin-right:4px;' })} ${this._t('alarmo')}: ${this._t('armed_away')}`;
+          chipAlarmo.innerHTML = `<span class="chip-dot dot-blue"></span> ${this._icon('shield', { size: 14, cls: 'icon-alarmo', style: iconStyle })} ${this._t('alarmo')}: ${this._t('armed_away')}`;
         }
       }
     }
@@ -1133,7 +1166,9 @@ class AtGlancePanel extends HTMLElement {
     // Weather Chip
     const chipWeather = this.shadowRoot.getElementById('chipWeather');
     if (chipWeather) {
-      if (this._config.top_bar_show_weather === false) {
+      const badgeConf = this._config?.top_bar_badges?.weather;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_weather !== false);
+      if (!isEnabled) {
         chipWeather.style.display = 'none';
       } else {
         chipWeather.style.display = 'inline-flex';
@@ -1143,7 +1178,17 @@ class AtGlancePanel extends HTMLElement {
     // Stats Chip
     const chipStatsNav = this.shadowRoot.getElementById('chipStatsNav');
     if (chipStatsNav) {
-      chipStatsNav.style.display = this._config.top_bar_show_stats === false ? 'none' : 'inline-flex';
+      const badgeConf = this._config?.top_bar_badges?.stats;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_stats !== false);
+      if (!isEnabled) {
+        chipStatsNav.style.display = 'none';
+      } else {
+        chipStatsNav.style.display = 'inline-flex';
+        if (badgeConf?.icon_color) {
+          const icon = chipStatsNav.querySelector('svg, ha-icon');
+          if (icon) icon.style.color = badgeConf.icon_color;
+        }
+      }
     }
 
     // 4. Update Room Cards
@@ -2024,6 +2069,153 @@ class AtGlancePanel extends HTMLElement {
     return defaultCats;
   }
 
+  _ensureTopBarBadgeDefaults() {
+    if (!this._config) return;
+    this._config.top_bar_badges = this._config.top_bar_badges || {};
+    const states = this._hass?.states || {};
+    const rooms = this._config.rooms || [];
+
+    const badgeDefs = [
+      {
+        id: 'weather',
+        defaultColor: '#38bdf8',
+        findDefaults: () => {
+          const w = this._getWeatherEntity();
+          return w ? [w] : [];
+        }
+      },
+      {
+        id: 'warnings',
+        defaultColor: '#ef4444',
+        findDefaults: () => {
+          const found = [];
+          Object.keys(states).forEach(eId => {
+            if (eId.startsWith('binary_sensor.warning_') || eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings') || eId.includes('nina') || (eId.includes('warning') && !eId.includes('camera'))) {
+              found.push(eId);
+            }
+          });
+          return found.slice(0, 15);
+        }
+      },
+      {
+        id: 'media',
+        defaultColor: '#a855f7',
+        findDefaults: () => {
+          const found = [];
+          rooms.forEach(r => {
+            [r.media_entity, r.tv_entity, r.audio_entity, r.video_entity].forEach(e => {
+              if (e && states[e] && !found.includes(e)) found.push(e);
+            });
+          });
+          Object.keys(states).filter(e => e.startsWith('media_player.')).forEach(e => {
+            if (!found.includes(e)) found.push(e);
+          });
+          return found.slice(0, 10);
+        }
+      },
+      {
+        id: 'alarmo',
+        defaultColor: '#6366f1',
+        findDefaults: () => {
+          const a = this._getAlarmEntity();
+          return a ? [a] : [];
+        }
+      },
+      {
+        id: 'persons',
+        defaultColor: '#8b5cf6',
+        findDefaults: () => {
+          if (Array.isArray(this._config.top_bar_persons) && this._config.top_bar_persons.length > 0) {
+            return [...this._config.top_bar_persons];
+          }
+          return Object.keys(states).filter(e => e.startsWith('person.'));
+        }
+      },
+      {
+        id: 'lights',
+        defaultColor: '#f59e0b',
+        findDefaults: () => {
+          const found = [];
+          const allLightsEntity = (this._config.all_lights_entity || 'light.licht_wohnung').toLowerCase();
+          rooms.forEach(r => {
+            if (r.id === 'wohnung') return;
+            const rLights = (typeof this._ensureRoomLights === 'function') ? this._ensureRoomLights(r) : (Array.isArray(r.lights) ? r.lights : (r.light_entity ? [r.light_entity] : []));
+            (rLights || []).forEach(lId => {
+              const norm = (lId || '').trim().toLowerCase();
+              if (norm && norm !== allLightsEntity && states[lId] && !found.includes(lId)) {
+                found.push(lId);
+              }
+            });
+          });
+          if (found.length === 0) {
+            Object.keys(states).filter(e => e.startsWith('light.') && e.toLowerCase() !== allLightsEntity).forEach(e => {
+              if (found.length < 20) found.push(e);
+            });
+          }
+          return found;
+        }
+      },
+      {
+        id: 'climate',
+        defaultColor: '#38bdf8',
+        findDefaults: () => {
+          const found = [];
+          rooms.forEach(r => {
+            if (r.climate_entity && states[r.climate_entity] && !found.includes(r.climate_entity)) {
+              found.push(r.climate_entity);
+            }
+          });
+          Object.keys(states).filter(e => e.startsWith('climate.')).forEach(e => {
+            if (!found.includes(e)) found.push(e);
+          });
+          return found;
+        }
+      },
+      {
+        id: 'lock',
+        defaultColor: '#10b981',
+        findDefaults: () => {
+          const found = [];
+          const lk = this._getLockEntity();
+          if (lk && states[lk]) found.push(lk);
+          const door = this._config.door_entity || Object.keys(states).find(e => e.startsWith('binary_sensor.') && (e.includes('turkontakt') || e.includes('door')));
+          if (door && states[door] && !found.includes(door)) found.push(door);
+          return found;
+        }
+      },
+      {
+        id: 'stats',
+        defaultColor: '#10b981',
+        findDefaults: () => {
+          const found = [];
+          if (Array.isArray(this._config.stats?.custom_sections)) {
+            this._config.stats.custom_sections.forEach(s => {
+              (s.entities || []).forEach(e => {
+                const eid = typeof e === 'string' ? e : e.id;
+                if (eid && states[eid] && !found.includes(eid)) found.push(eid);
+              });
+            });
+          }
+          return found.slice(0, 10);
+        }
+      }
+    ];
+
+    badgeDefs.forEach(b => {
+      if (!this._config.top_bar_badges[b.id] || !this._config.top_bar_badges[b.id].initialized) {
+        const legacyShow = this._config['top_bar_show_' + b.id];
+        const isEnabled = legacyShow !== undefined ? (legacyShow !== false) : true;
+        const initialEntities = b.findDefaults();
+        this._config.top_bar_badges[b.id] = {
+          enabled: isEnabled,
+          icon_color: this._config.top_bar_badges[b.id]?.icon_color || b.defaultColor,
+          modal_entities: this._config.top_bar_badges[b.id]?.modal_entities || initialEntities,
+          initialized: true
+        };
+      }
+    });
+  }
+
 
   _render() {
     if (!this._configLoaded) {
@@ -2462,6 +2654,8 @@ class AtGlancePanel extends HTMLElement {
     this.shadowRoot.getElementById('chipWeather').addEventListener('click', () => this._openModal('weather'));
     const chipWarning = this.shadowRoot.getElementById('chipWarning');
     if (chipWarning) chipWarning.addEventListener('click', () => this._openModal('warnings'));
+    const chipMedia = this.shadowRoot.getElementById('chipMedia');
+    if (chipMedia) chipMedia.addEventListener('click', () => this._openModal('media'));
 
     // Global click listener to close compact select dropdowns
     this.shadowRoot.addEventListener('click', (e) => {
