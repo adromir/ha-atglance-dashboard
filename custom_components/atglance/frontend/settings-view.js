@@ -79,7 +79,7 @@ export const settingsMethods = {
       right: 0;
       bottom: 0;
       height: calc(100vh - var(--header-height, 56px));
-      background: rgba(0, 0, 0, 0.75);
+      background: var(--overlay-backdrop, rgba(0, 0, 0, 0.65));
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       z-index: 250;
@@ -144,42 +144,42 @@ export const settingsMethods = {
 
     pickerOverlay.innerHTML = `
       <div class="icon-picker-card" style="
-        background: var(--bg-card, rgba(15, 23, 42, 0.95));
-        border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.2));
+        background: var(--bg-card);
+        border: 1px solid var(--border-glass);
         border-radius: 18px;
         width: 100%;
         max-width: 640px;
         max-height: calc(100vh - var(--header-height, 56px) - 32px);
         display: flex;
         flex-direction: column;
-        box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
+        box-shadow: var(--shadow-ambient, 0 25px 60px -15px rgba(0, 0, 0, 0.5));
         overflow: hidden;
-        color: var(--text-primary, #ffffff);
+        color: var(--text-primary);
         font-family: inherit;
       ">
         <!-- Header -->
-        <div style="padding: 16px 20px 12px; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.1)); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03);">
+        <div style="padding: 16px 20px 12px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface);">
           <div>
-            <div style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
               <ha-icon icon="mdi:palette" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon> Icon auswählen
             </div>
-            <div style="font-size: 12px; color: var(--text-secondary, #94a3b8); margin-top: 2px;">
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
               Klicke auf ein Icon zum sofortigen Übernehmen oder suche gezielt nach Namen.
             </div>
           </div>
-          <button id="btnIconPickerClose" style="background: transparent; border: none; font-size: 26px; color: var(--text-secondary, #94a3b8); cursor: pointer; padding: 0 6px; line-height: 1; border-radius: 6px;">&times;</button>
+          <button id="btnIconPickerClose" style="background: transparent; border: none; font-size: 26px; color: var(--text-secondary); cursor: pointer; padding: 0 6px; line-height: 1; border-radius: 6px;">&times;</button>
         </div>
 
         <!-- Search / Direct Input Bar -->
-        <div style="padding: 12px 20px; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); display: flex; flex-direction: column; gap: 8px;">
-          <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:10px;border:1px solid var(--border-subtle, rgba(255,255,255,0.1));">
-            <ha-icon icon="mdi:magnify" style="--mdc-icon-size:20px;color:var(--accent,#38bdf8);flex-shrink:0;"></ha-icon>
-            <input type="text" id="iconPickerSearchInp" placeholder="Icon suchen oder beliebiges Icon (z.B. mdi:..., ci:..., phu:...) eingeben..." style="flex:1;background:transparent;border:none;outline:none;color:var(--text-primary,#ffffff);font-size:13px;">
+        <div style="padding: 12px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 8px; background: var(--bg-surface);">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--bg-card);padding:8px 12px;border-radius:10px;border:1px solid var(--border-subtle);">
+            <ha-icon icon="mdi:magnify" style="--mdc-icon-size:20px;color:var(--accent);flex-shrink:0;"></ha-icon>
+            <input type="text" id="iconPickerSearchInp" placeholder="Icon suchen oder beliebiges Icon (z.B. mdi:..., ci:..., phu:...) eingeben..." style="flex:1;background:transparent;border:none;outline:none;color:var(--text-primary);font-size:13px;">
           </div>
         </div>
 
         <!-- Scrollable Icon Grid -->
-        <div id="iconPickerGridContainer" style="padding: 16px 20px; overflow-y: auto; flex: 1; max-height: 420px;">
+        <div id="iconPickerGridContainer" style="padding: 16px 20px; overflow-y: auto; flex: 1; max-height: 420px; background: var(--bg-card);">
           <div id="iconPickerGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px;">
             <!-- Rendered by updateGrid() -->
           </div>
@@ -187,7 +187,8 @@ export const settingsMethods = {
       </div>
     `;
 
-    this.shadowRoot.appendChild(pickerOverlay);
+    const targetRoot = this.shadowRoot.querySelector('.dashboard-root') || this.shadowRoot;
+    targetRoot.appendChild(pickerOverlay);
 
     const updateGrid = () => {
       const grid = pickerOverlay.querySelector('#iconPickerGrid');
@@ -198,12 +199,12 @@ export const settingsMethods = {
       if (searchQuery) {
         const typedIcon = searchQuery.includes(':') ? searchQuery : `mdi:${searchQuery}`;
         topBannerHtml = `
-          <div style="grid-column: 1 / -1; margin-bottom: 8px; padding: 8px 12px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-              <ha-icon icon="${typedIcon}" style="--mdc-icon-size: 20px; color: var(--accent, #38bdf8);"></ha-icon>
-              <span>Eingabe: <code style="color:var(--accent,#38bdf8);font-weight:700;">${typedIcon}</code></span>
+          <div style="grid-column: 1 / -1; margin-bottom: 8px; padding: 8px 12px; background: var(--accent-subtle, rgba(56, 189, 248, 0.12)); border: 1px solid var(--accent); border-radius: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-primary);">
+              <ha-icon icon="${typedIcon}" style="--mdc-icon-size: 20px; color: var(--accent);"></ha-icon>
+              <span>Eingabe: <code style="color:var(--accent);font-weight:700;">${typedIcon}</code></span>
             </div>
-            <button type="button" class="btn-select-icon" data-icon="${typedIcon}" style="padding: 5px 12px; border-radius: 6px; background: var(--accent, #38bdf8); color: #fff; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">
+            <button type="button" class="btn-select-icon" data-icon="${typedIcon}" style="padding: 5px 12px; border-radius: 6px; background: var(--accent); color: #fff; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">
               Sofort verwenden
             </button>
           </div>
@@ -216,9 +217,9 @@ export const settingsMethods = {
       if (list.length === 0) {
         const typedIcon = searchQuery.includes(':') ? searchQuery : `mdi:${searchQuery}`;
         grid.innerHTML = `
-          <div style="grid-column: 1 / -1; padding: 24px; text-align: center; color: var(--text-secondary, #94a3b8); font-size: 13px;">
+          <div style="grid-column: 1 / -1; padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px;">
             <p style="margin-bottom:12px;">Kein Icon im Katalog gefunden.</p>
-            <button type="button" class="btn-select-icon" data-icon="${typedIcon}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:var(--accent,#38bdf8);color:#ffffff;border:none;cursor:pointer;font-weight:600;">
+            <button type="button" class="btn-select-icon" data-icon="${typedIcon}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:var(--accent);color:#ffffff;border:none;cursor:pointer;font-weight:600;">
               <ha-icon icon="${typedIcon}" style="--mdc-icon-size:18px;"></ha-icon> "${typedIcon}" verwenden
             </button>
           </div>
@@ -242,17 +243,17 @@ export const settingsMethods = {
           gap: 6px;
           padding: 10px 4px;
           border-radius: 10px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
-          color: var(--text-primary, #ffffff);
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-primary);
           cursor: pointer;
           transition: all 0.15s ease;
           overflow: hidden;
         ">
-          <div style="color: var(--accent, #38bdf8); display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;">
+          <div style="color: var(--accent); display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;">
             <ha-icon icon="${item.name}" style="--mdc-icon-size:24px;"></ha-icon>
           </div>
-          <div style="font-size: 10px; color: var(--text-secondary, #94a3b8); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px;">
+          <div style="font-size: 10px; color: var(--text-secondary); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px;">
             ${item.label}
           </div>
         </button>
@@ -260,12 +261,12 @@ export const settingsMethods = {
 
       grid.querySelectorAll('.btn-select-icon').forEach(btn => {
         btn.onmouseenter = () => {
-          btn.style.background = 'rgba(56, 189, 248, 0.15)';
-          btn.style.borderColor = 'var(--accent, #38bdf8)';
+          btn.style.background = 'var(--bg-surface-hover)';
+          btn.style.borderColor = 'var(--accent)';
         };
         btn.onmouseleave = () => {
-          btn.style.background = 'rgba(255, 255, 255, 0.04)';
-          btn.style.borderColor = 'var(--border-subtle, rgba(255, 255, 255, 0.12))';
+          btn.style.background = 'var(--bg-surface)';
+          btn.style.borderColor = 'var(--border-subtle)';
         };
         btn.onclick = () => {
           const selected = btn.getAttribute('data-icon');
@@ -366,7 +367,7 @@ export const settingsMethods = {
       right: 0;
       bottom: 0;
       height: calc(100vh - var(--header-height, 56px));
-      background: rgba(0, 0, 0, 0.72);
+      background: var(--overlay-backdrop, rgba(0, 0, 0, 0.65));
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       z-index: 200;
@@ -396,42 +397,42 @@ export const settingsMethods = {
 
     pickerOverlay.innerHTML = `
       <div class="entity-picker-card" style="
-        background: var(--bg-card, rgba(15, 23, 42, 0.95));
-        border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.2));
+        background: var(--bg-card);
+        border: 1px solid var(--border-glass);
         border-radius: 18px;
         width: 100%;
         max-width: 580px;
         max-height: calc(100vh - var(--header-height, 56px) - 32px);
         display: flex;
         flex-direction: column;
-        box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.65);
+        box-shadow: var(--shadow-ambient, 0 25px 60px -15px rgba(0, 0, 0, 0.5));
         overflow: hidden;
-        color: var(--text-primary, #ffffff);
+        color: var(--text-primary);
         font-family: inherit;
       ">
         <!-- Header -->
-        <div style="padding: 16px 20px 12px 20px; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.1)); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03);">
+        <div style="padding: 16px 20px 12px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface);">
           <div>
-            <div style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
               <ha-icon icon="mdi:magnify" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon> Entität auswählen
             </div>
-            <div style="font-size: 12px; color: var(--text-secondary, #94a3b8); margin-top: 2px;">
-              ${roomName ? `Zugeordneter Raum: <strong style="color:var(--accent,#38bdf8);">${roomName}</strong> (${roomId})` : 'Home Assistant Entitäten'}
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+              ${roomName ? `Zugeordneter Raum: <strong style="color:var(--accent);">${roomName}</strong> (${roomId})` : 'Home Assistant Entitäten'}
             </div>
           </div>
-          <button id="btnPickerClose" style="background: transparent; border: none; font-size: 26px; color: var(--text-secondary, #94a3b8); cursor: pointer; padding: 0 6px; line-height: 1; border-radius: 6px;">&times;</button>
+          <button id="btnPickerClose" style="background: transparent; border: none; font-size: 26px; color: var(--text-secondary); cursor: pointer; padding: 0 6px; line-height: 1; border-radius: 6px;">&times;</button>
         </div>
 
         <!-- Filter & Search Section -->
-        <div style="padding: 12px 20px; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); display: flex; flex-direction: column; gap: 10px;">
+        <div style="padding: 12px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 10px; background: var(--bg-surface);">
           ${roomId ? `
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; background: rgba(56, 189, 248, 0.12); padding: 8px 12px; border-radius: 9px; border: 1px solid rgba(56, 189, 248, 0.3); color: var(--accent, #38bdf8); user-select: none;">
-              <input type="checkbox" id="chkPickerRoomFilter" ${filterByRoom ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent, #38bdf8);">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; background: var(--accent-subtle, rgba(56, 189, 248, 0.12)); padding: 8px 12px; border-radius: 9px; border: 1px solid var(--accent); color: var(--accent); user-select: none;">
+              <input type="checkbox" id="chkPickerRoomFilter" ${filterByRoom ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent);">
               <span>Nur Entitäten aus "${roomName || roomId}" anzeigen</span>
             </label>
           ` : ''}
 
-          <input type="text" id="pickerSearchInp" placeholder="Suchen nach Name oder entity_id..." style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-glass, rgba(255,255,255,0.2)); background: rgba(255,255,255,0.07); color: var(--text-primary, #ffffff); font-size: 14px; outline: none; box-sizing: border-box;">
+          <input type="text" id="pickerSearchInp" placeholder="Suchen nach Name oder entity_id..." style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-primary); font-size: 14px; outline: none; box-sizing: border-box;">
 
           <!-- Domain Pills -->
           <div id="pickerDomainPills" style="display: flex; flex-wrap: wrap; gap: 6px; overflow-x: visible; padding-bottom: 2px;">
@@ -444,29 +445,30 @@ export const settingsMethods = {
                 cursor: pointer;
                 white-space: nowrap;
                 transition: all 0.15s;
-                border: 1px solid ${selectedDomain === d.id ? 'var(--accent, #38bdf8)' : 'rgba(255,255,255,0.15)'};
-                background: ${selectedDomain === d.id ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.05)'};
-                color: ${selectedDomain === d.id ? '#ffffff' : 'var(--text-secondary, #94a3b8)'};
+                border: 1px solid ${selectedDomain === d.id ? 'var(--accent)' : 'var(--border-subtle)'};
+                background: ${selectedDomain === d.id ? 'var(--accent-subtle, rgba(56, 189, 248, 0.2))' : 'var(--bg-card)'};
+                color: ${selectedDomain === d.id ? 'var(--accent)' : 'var(--text-secondary)'};
               ">${d.label}</button>
             `).join('')}
           </div>
         </div>
 
         <!-- Entity Results List -->
-        <div id="pickerEntityList" style="flex: 1; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 6px; min-height: 200px; max-height: 380px;">
+        <div id="pickerEntityList" style="flex: 1; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 6px; min-height: 200px; max-height: 380px; background: var(--bg-card);">
         </div>
 
         <!-- Footer -->
-        <div style="padding: 12px 20px; border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.18);">
+        <div style="padding: 12px 20px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface);">
           <button type="button" id="btnPickerClear" style="color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
             <ha-icon icon="mdi:close" style="--mdc-icon-size:14px;"></ha-icon> Entität leeren
           </button>
-          <div id="pickerCountText" style="font-size: 12px; color: var(--text-secondary, #94a3b8);">0 Entitäten</div>
+          <div id="pickerCountText" style="font-size: 12px; color: var(--text-secondary);">0 Entitäten</div>
         </div>
       </div>
     `;
 
-    this.shadowRoot.appendChild(pickerOverlay);
+    const targetRoot = this.shadowRoot.querySelector('.dashboard-root') || this.shadowRoot;
+    targetRoot.appendChild(pickerOverlay);
 
     const searchInp = pickerOverlay.querySelector('#pickerSearchInp');
     const chkRoom = pickerOverlay.querySelector('#chkPickerRoomFilter');
@@ -498,10 +500,10 @@ export const settingsMethods = {
 
       if (filtered.length === 0) {
         listEl.innerHTML = `
-          <div style="text-align: center; padding: 32px 16px; color: var(--text-secondary, #94a3b8); font-size: 13px;">
+          <div style="text-align: center; padding: 32px 16px; color: var(--text-secondary); font-size: 13px;">
             <div style="margin-bottom: 8px; opacity: 0.5;"><ha-icon icon="mdi:magnify" style="--mdc-icon-size:32px;"></ha-icon></div>
             Keine Entitäten gefunden${filterByRoom ? ' für diesen Raum' : ''}.<br>
-            ${filterByRoom ? '<button type="button" id="btnDisableRoomFilter" style="margin-top:10px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:var(--accent,#38bdf8);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;">Raumfilter aufheben (alle Entitäten)</button>' : ''}
+            ${filterByRoom ? '<button type="button" id="btnDisableRoomFilter" style="margin-top:10px;background:var(--accent-subtle, rgba(56,189,248,0.15));border:1px solid var(--accent);color:var(--accent);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;">Raumfilter aufheben (alle Entitäten)</button>' : ''}
           </div>
         `;
         const btnDisable = listEl.querySelector('#btnDisableRoomFilter');
@@ -533,35 +535,35 @@ export const settingsMethods = {
             gap: 12px;
             padding: 9px 12px;
             border-radius: 10px;
-            background: ${isSelected ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.04)'};
-            border: 1px solid ${isSelected ? 'var(--accent, #38bdf8)' : 'rgba(255, 255, 255, 0.08)'};
+            background: ${isSelected ? 'var(--accent-subtle, rgba(56, 189, 248, 0.2))' : 'var(--bg-surface)'};
+            border: 1px solid ${isSelected ? 'var(--accent)' : 'var(--border-subtle)'};
             cursor: pointer;
             transition: all 0.12s;
           ">
             <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 600; font-size: 13px; color: var(--text-primary, #ffffff); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <div style="font-weight: 600; font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 ${fname}
               </div>
-              <div style="font-size: 11px; color: var(--text-secondary, #94a3b8); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;">
+              <div style="font-size: 11px; color: var(--text-secondary); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;">
                 ${eId}
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              ${inRoom ? `<span style="font-size: 10px; background: rgba(56, 189, 248, 0.15); color: var(--accent, #38bdf8); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.3); display: inline-flex; align-items: center; gap: 3px;"><ha-icon icon="mdi:map-marker" style="--mdc-icon-size:11px;"></ha-icon> ${roomName || roomId}</span>` : ''}
-              <span style="font-size: 11px; color: var(--text-secondary, #94a3b8); background: rgba(255, 255, 255, 0.07); padding: 2px 7px; border-radius: 6px; white-space: nowrap;">
+              ${inRoom ? `<span style="font-size: 10px; background: var(--accent-subtle, rgba(56, 189, 248, 0.15)); color: var(--accent); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--accent); display: inline-flex; align-items: center; gap: 3px;"><ha-icon icon="mdi:map-marker" style="--mdc-icon-size:11px;"></ha-icon> ${roomName || roomId}</span>` : ''}
+              <span style="font-size: 11px; color: var(--text-secondary); background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 2px 7px; border-radius: 6px; white-space: nowrap;">
                 ${stateVal} ${unit}
               </span>
-              ${isSelected ? `<ha-icon icon="mdi:check" style="--mdc-icon-size:14px;color:var(--accent,#38bdf8);"></ha-icon>` : ''}
+              ${isSelected ? `<ha-icon icon="mdi:check" style="--mdc-icon-size:14px;color:var(--accent);"></ha-icon>` : ''}
             </div>
           </div>
         `;
       }).join('');
 
       listEl.querySelectorAll('.entity-picker-item').forEach(el => {
-        el.onmouseenter = () => { el.style.background = 'rgba(56, 189, 248, 0.15)'; };
+        el.onmouseenter = () => { el.style.background = 'var(--bg-surface-hover)'; };
         el.onmouseleave = () => {
           const eid = el.getAttribute('data-eid');
-          el.style.background = (currentValue === eid) ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.04)';
+          el.style.background = (currentValue === eid) ? 'var(--accent-subtle, rgba(56, 189, 248, 0.2))' : 'var(--bg-surface)';
         };
         el.onclick = () => {
           const eid = el.getAttribute('data-eid');

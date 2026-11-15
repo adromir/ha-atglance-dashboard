@@ -23,8 +23,10 @@ export const ATGLANCE_STYLES = `
           --text-primary: var(--primary-text-color, #0f172a);
           --text-secondary: var(--secondary-text-color, #334155);
           --accent: var(--primary-color, #0284c7);
+          --accent-subtle: rgba(2, 132, 199, 0.12);
           --accent-amber: #ea580c;
           --accent-green: #10b981;
+          --overlay-backdrop: rgba(15, 23, 42, 0.32);
           --dock-bg: var(--ha-card-background, rgba(255, 255, 255, 0.96));
           --shadow-ambient: 0 14px 35px rgba(15, 23, 42, 0.12), 0 3px 8px rgba(15, 23, 42, 0.06);
           --card-overlay: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.60) 100%);
@@ -47,8 +49,10 @@ export const ATGLANCE_STYLES = `
           --text-primary: var(--primary-text-color, #f8fafc);
           --text-secondary: var(--secondary-text-color, #94a3b8);
           --accent: var(--primary-color, #38bdf8);
+          --accent-subtle: rgba(56, 189, 248, 0.18);
           --accent-amber: #f59e0b;
           --accent-green: #10b981;
+          --overlay-backdrop: rgba(0, 0, 0, 0.68);
           --dock-bg: var(--ha-card-background, rgba(16, 22, 34, 0.72));
           --shadow-ambient: 0 16px 36px rgba(0, 0, 0, 0.38);
           --card-overlay: linear-gradient(180deg, rgba(20,27,42,0.7) 0%, rgba(12,16,24,0.5) 100%);
@@ -78,8 +82,10 @@ export const ATGLANCE_STYLES = `
           --text-primary: var(--primary-text-color, #f8fafc);
           --text-secondary: var(--secondary-text-color, #94a3b8);
           --accent: var(--primary-color, #38bdf8);
+          --accent-subtle: rgba(56, 189, 248, 0.18);
           --accent-amber: #f59e0b;
           --accent-green: #10b981;
+          --overlay-backdrop: rgba(0, 0, 0, 0.68);
           --dock-bg: var(--ha-card-background, rgba(16, 22, 34, 0.72));
           transition: background 0.5s ease, color 0.3s ease;
         }
