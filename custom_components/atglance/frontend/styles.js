@@ -1977,6 +1977,14 @@ export const ATGLANCE_STYLES = `
           50% { opacity: 0.75; transform: scale(0.97); }
         }
 
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
         /* VisionOS Styled D-Pad Remote Navigation Grid */
         .dpad-grid {
           display: grid;

@@ -1,6 +1,6 @@
 {
   "name": "ha-atglance-dashboard",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "type": "module",
   "description": "Ultra-modern translucent Glassmorphism smart home dashboard for Home Assistant with interactive modals, day/night auto-switching, and floating dock",
   "scripts": {

@@ -2027,6 +2027,7 @@ export const settingsMethods = {
 
     const discardBtn = container.querySelector('#btnDiscardSettings');
     if (discardBtn) {
+      discardBtn.onpointerdown = (e) => e.preventDefault();
       discardBtn.onclick = () => this._discardSettingsChanges(container, isModal);
     }
 
@@ -2065,6 +2066,7 @@ export const settingsMethods = {
         const rowCust = container.querySelector('#rowCustomBgUrl');
         if (rowCust) rowCust.style.display = bgSel.value === 'custom' ? 'flex' : 'none';
         this._config.background_style = bgSel.value;
+        this._markSettingsDirty(container);
         this._applyThemeClass?.();
       };
     }
@@ -2073,6 +2075,7 @@ export const settingsMethods = {
     if (animSel) {
       animSel.onchange = () => {
         this._config.ambient_speed = animSel.value;
+        this._markSettingsDirty(container);
         this._applyThemeClass?.();
       };
     }
@@ -2081,6 +2084,7 @@ export const settingsMethods = {
     if (tModeSel) {
       tModeSel.onchange = () => {
         this._config.theme_mode = tModeSel.value;
+        this._markSettingsDirty(container);
         this._applyThemeClass?.();
       };
     }
@@ -2089,6 +2093,7 @@ export const settingsMethods = {
     if (bgModeSel) {
       bgModeSel.onchange = () => {
         this._config.background_mode = bgModeSel.value;
+        this._markSettingsDirty(container);
         this._applyThemeClass?.();
       };
     }
@@ -2097,6 +2102,7 @@ export const settingsMethods = {
     if (bgUrlInp) {
       bgUrlInp.oninput = () => {
         this._config.background_image_url = bgUrlInp.value.trim();
+        this._markSettingsDirty(container);
         this._applyThemeClass?.();
       };
     }
@@ -2107,6 +2113,7 @@ export const settingsMethods = {
         const rowCustScheme = container.querySelector('#rowCustomColors');
         if (rowCustScheme) rowCustScheme.style.display = schemeSel.value === 'custom' ? 'grid' : 'none';
         this._config.color_scheme = schemeSel.value;
+        this._markSettingsDirty(container);
         this._applyThemeClass?.();
       };
     }
@@ -2128,6 +2135,7 @@ export const settingsMethods = {
           const cats = this._ensureRoomControlsCategories(r);
           cats.push({ id: 'cat_' + Date.now(), name: 'Neue Kategorie', icon: 'mdi:tune-vertical', entities: [] });
           r.overlay_categories = JSON.parse(JSON.stringify(cats));
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2142,6 +2150,7 @@ export const settingsMethods = {
         if (cats && cats[cIdx]) {
           cats.splice(cIdx, 1);
           r.overlay_categories = JSON.parse(JSON.stringify(cats));
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2158,6 +2167,7 @@ export const settingsMethods = {
           cats[cIdx] = cats[cIdx - 1];
           cats[cIdx - 1] = tmp;
           r.overlay_categories = JSON.parse(JSON.stringify(cats));
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2174,6 +2184,7 @@ export const settingsMethods = {
           cats[cIdx] = cats[cIdx + 1];
           cats[cIdx + 1] = tmp;
           r.overlay_categories = JSON.parse(JSON.stringify(cats));
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2199,6 +2210,7 @@ export const settingsMethods = {
             if (chosenId && !cat.entities.includes(chosenId)) {
               cat.entities.push(chosenId);
               r.overlay_categories = JSON.parse(JSON.stringify(cats));
+              this._markSettingsDirty(container);
               this._renderSettingsContent(container, isModal);
             }
           }
@@ -2216,6 +2228,7 @@ export const settingsMethods = {
         if (cats?.[cIdx]?.entities) {
           cats[cIdx].entities.splice(eIdx, 1);
           r.overlay_categories = JSON.parse(JSON.stringify(cats));
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2230,6 +2243,7 @@ export const settingsMethods = {
         if (cats?.[cIdx]) {
           cats[cIdx].name = inp.value;
           r.overlay_categories = JSON.parse(JSON.stringify(cats));
+          this._markSettingsDirty(container);
         }
       };
     });
@@ -2251,6 +2265,7 @@ export const settingsMethods = {
           onSelect: (chosenId) => {
             if (chosenId && !r.lights.includes(chosenId)) {
               r.lights.push(chosenId);
+              this._markSettingsDirty(container);
               this._renderSettingsContent(container, isModal);
             }
           }
@@ -2265,6 +2280,7 @@ export const settingsMethods = {
         const r = this._config.rooms && this._config.rooms[rIdx];
         if (r?.lights && Array.isArray(r.lights)) {
           r.lights.splice(lIdx, 1);
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2277,6 +2293,7 @@ export const settingsMethods = {
         const r = this._config.rooms && this._config.rooms[rIdx];
         if (r) {
           r.enable_eco_comfort = chk.checked;
+          this._markSettingsDirty(container);
         }
       };
     });
@@ -2294,6 +2311,7 @@ export const settingsMethods = {
           const temp = this._config.rooms[idx];
           this._config.rooms[idx] = this._config.rooms[idx - 1];
           this._config.rooms[idx - 1] = temp;
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2307,6 +2325,7 @@ export const settingsMethods = {
           const temp = this._config.rooms[idx];
           this._config.rooms[idx] = this._config.rooms[idx + 1];
           this._config.rooms[idx + 1] = temp;
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2321,6 +2340,7 @@ export const settingsMethods = {
           const temp = this._config.dock.items[idx];
           this._config.dock.items[idx] = this._config.dock.items[idx - 1];
           this._config.dock.items[idx - 1] = temp;
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2333,6 +2353,7 @@ export const settingsMethods = {
           const temp = this._config.dock.items[idx];
           this._config.dock.items[idx] = this._config.dock.items[idx + 1];
           this._config.dock.items[idx + 1] = temp;
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2388,6 +2409,7 @@ export const settingsMethods = {
         const idx = parseInt(inp.getAttribute('data-didx'));
         if (this._config.dock?.items?.[idx]) {
           this._config.dock.items[idx].icon = inp.value.trim();
+          this._markSettingsDirty(container);
           const box = container.querySelector('#dockIconBox_' + idx);
           if (box) box.innerHTML = this._icon(this._config.dock.items[idx].icon || 'star', { size: 18 });
         }
@@ -2403,6 +2425,7 @@ export const settingsMethods = {
           currentValue: item.icon || 'star',
           onSelect: (newIcon) => {
             item.icon = newIcon;
+            this._markSettingsDirty(container);
             this._renderSettingsContent(container, isModal);
           }
         });
@@ -2422,6 +2445,7 @@ export const settingsMethods = {
                 if (!item.entities) item.entities = [];
                 if (!item.entities.includes(selectedId)) {
                   item.entities.push(selectedId);
+                  this._markSettingsDirty(container);
                   this._renderSettingsContent(container, isModal);
                 }
               }
@@ -2437,6 +2461,7 @@ export const settingsMethods = {
         const eIdx = parseInt(b.getAttribute('data-eidx'));
         if (this._config.dock?.items?.[dIdx]?.entities) {
           this._config.dock.items[dIdx].entities.splice(eIdx, 1);
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2463,10 +2488,15 @@ export const settingsMethods = {
         roomName: room.name,
         defaultDomain: defDomain,
         onSelect: (selectedId) => {
-          if (targetInp) targetInp.value = selectedId;
+          if (targetInp) {
+            targetInp.value = selectedId;
+            targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+            targetInp.dispatchEvent(new Event('change', { bubbles: true }));
+          }
           if (this._config.rooms && this._config.rooms[rIdx]) {
             this._config.rooms[rIdx][prop] = selectedId;
           }
+          this._markSettingsDirty(container);
         }
       });
     };
@@ -2492,6 +2522,7 @@ export const settingsMethods = {
         const prop = inp.getAttribute('data-prop');
         if (this._config.rooms && this._config.rooms[rIdx]) {
           this._config.rooms[rIdx][prop] = inp.value.trim();
+          this._markSettingsDirty(container);
         }
       };
     });
@@ -2509,10 +2540,15 @@ export const settingsMethods = {
           roomName: null,
           defaultDomain: domain,
           onSelect: (selectedId) => {
-            if (targetInp) targetInp.value = selectedId;
+            if (targetInp) {
+              targetInp.value = selectedId;
+              targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+              targetInp.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             if (targetId === 'cfgWeather') this._config.weather_entity = selectedId;
             else if (targetId === 'cfgLock') this._config.lock_entity = selectedId;
             else if (targetId === 'cfgAllLights') this._config.all_lights_entity = selectedId;
+            this._markSettingsDirty(container);
           }
         });
       };
@@ -2535,9 +2571,9 @@ export const settingsMethods = {
         } else {
           act.enabled = chk.checked;
         }
+        this._markSettingsDirty(container);
       };
     });
-
     // Temperature Quick Stepper Checkbox
     container.querySelectorAll('.chk-show-temp-control').forEach(chk => {
       chk.onchange = () => {
@@ -2545,6 +2581,7 @@ export const settingsMethods = {
         const room = this._config.rooms?.[rIdx];
         if (room) {
           room.show_temp_control = chk.checked;
+          this._markSettingsDirty(container);
         }
       };
     });
@@ -2566,6 +2603,7 @@ export const settingsMethods = {
         } else {
           act.title = inp.value;
         }
+        this._markSettingsDirty(container);
       };
     });
 
@@ -2585,6 +2623,7 @@ export const settingsMethods = {
         } else {
           act.entity_id = inp.value.trim();
         }
+        this._markSettingsDirty(container);
       };
     });
 
@@ -2609,6 +2648,7 @@ export const settingsMethods = {
           roomName: room.name,
           onSelect: (selectedId) => {
             act.entity_id = selectedId;
+            this._markSettingsDirty(container);
             this._renderSettingsContent(container, isModal);
           }
         });
@@ -2633,6 +2673,7 @@ export const settingsMethods = {
           currentValue: act.icon || '',
           onSelect: (newIcon) => {
             act.icon = newIcon;
+            this._markSettingsDirty(container);
             this._renderSettingsContent(container, isModal);
           }
         });
@@ -2656,6 +2697,7 @@ export const settingsMethods = {
           entity_id: '',
           enabled: true
         });
+        this._markSettingsDirty(container);
         this._renderSettingsContent(container, isModal);
       };
     });
@@ -2670,6 +2712,7 @@ export const settingsMethods = {
         const targetAct = customActs[caIdx];
         if (targetAct) {
           room.bento_actions = room.bento_actions.filter(a => a !== targetAct);
+          this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
         }
       };
@@ -2683,6 +2726,7 @@ export const settingsMethods = {
         const customActs = room?.bento_actions?.filter(a => a.type === 'custom');
         if (customActs?.[caIdx]) {
           customActs[caIdx].title = inp.value;
+          this._markSettingsDirty(container);
         }
       };
     });
@@ -2695,6 +2739,7 @@ export const settingsMethods = {
         const customActs = room?.bento_actions?.filter(a => a.type === 'custom');
         if (customActs?.[caIdx]) {
           customActs[caIdx].entity_id = inp.value.trim();
+          this._markSettingsDirty(container);
         }
       };
     });
@@ -2717,6 +2762,7 @@ export const settingsMethods = {
               const s = this._hass?.states?.[selectedId];
               customActs[caIdx].title = s?.attributes?.friendly_name || selectedId;
             }
+            this._markSettingsDirty(container);
             this._renderSettingsContent(container, isModal);
           }
         });
@@ -2734,6 +2780,7 @@ export const settingsMethods = {
           currentValue: customActs[caIdx].icon || 'mdi:star',
           onSelect: (newIcon) => {
             customActs[caIdx].icon = newIcon;
+            this._markSettingsDirty(container);
             this._renderSettingsContent(container, isModal);
           }
         });
@@ -2874,6 +2921,7 @@ export const settingsMethods = {
           icon: 'mdi:chart-box-outline',
           entity_id: ''
         });
+        this._markSettingsDirty(container);
         this._renderSettingsContent(container, isModal);
       };
     });
@@ -2888,6 +2936,7 @@ export const settingsMethods = {
           room.bento_badges = [...this._getRoomBentoBadges(room)];
         }
         room.bento_badges.splice(bIdx, 1);
+        this._markSettingsDirty(container);
         this._renderSettingsContent(container, isModal);
       };
     });
@@ -2903,6 +2952,7 @@ export const settingsMethods = {
         }
         if (room.bento_badges[bIdx]) {
           room.bento_badges[bIdx].name = inp.value;
+          this._markSettingsDirty(container);
         }
       };
     });
@@ -2918,6 +2968,7 @@ export const settingsMethods = {
         }
         if (room.bento_badges[bIdx]) {
           room.bento_badges[bIdx].entity_id = inp.value.trim();
+          this._markSettingsDirty(container);
         }
       };
     });
@@ -2944,6 +2995,7 @@ export const settingsMethods = {
               const st = this._hass?.states[selectedId];
               if (st?.attributes?.friendly_name) badge.name = st.attributes.friendly_name;
             }
+            this._markSettingsDirty(container);
             this._renderSettingsContent(container, isModal);
           }
         });
@@ -2965,6 +3017,7 @@ export const settingsMethods = {
           currentValue: badge.icon || 'mdi:chart-box-outline',
           onSelect: (newIcon) => {
             badge.icon = newIcon;
+            this._markSettingsDirty(container);
             this._renderSettingsContent(container, isModal);
           }
         });
@@ -3480,8 +3533,9 @@ export const settingsMethods = {
             }
             if (!this._config.stats.rooms[rId].temp_entities.includes(chosenId)) {
               this._config.stats.rooms[rId].temp_entities.push(chosenId);
+              this._markSettingsDirty(container);
+              this._renderSettingsContent(container, isModal);
             }
-            this._renderSettingsContent(container, isModal);
           }
         });
       };
@@ -3502,8 +3556,9 @@ export const settingsMethods = {
             }
             if (!this._config.stats.rooms[rId].illum_entities.includes(chosenId)) {
               this._config.stats.rooms[rId].illum_entities.push(chosenId);
+              this._markSettingsDirty(container);
+              this._renderSettingsContent(container, isModal);
             }
-            this._renderSettingsContent(container, isModal);
           }
         });
       };
@@ -3534,6 +3589,85 @@ export const settingsMethods = {
         const rIdx = parseInt(chk.getAttribute('data-ridx'));
         if (this._config.rooms && this._config.rooms[rIdx]) {
           this._config.rooms[rIdx].enable_eco_comfort = chk.checked;
+        }
+      });
+
+      // Collect show temp control checkboxes
+      container.querySelectorAll('.chk-show-temp-control').forEach(chk => {
+        const rIdx = parseInt(chk.getAttribute('data-ridx'));
+        if (this._config.rooms && this._config.rooms[rIdx]) {
+          this._config.rooms[rIdx].show_temp_control = chk.checked;
+        }
+      });
+
+      // Collect standard bento action inputs
+      container.querySelectorAll('.in-std-act-title').forEach(inp => {
+        const rIdx = parseInt(inp.getAttribute('data-ridx'));
+        const actType = inp.getAttribute('data-act-type');
+        const room = this._config.rooms?.[rIdx];
+        if (!room) return;
+        if (!Array.isArray(room.bento_actions)) room.bento_actions = [...this._getRoomBentoActions(room)];
+        let act = room.bento_actions.find(a => a.type === actType);
+        if (!act) {
+          act = { type: actType, enabled: true, title: inp.value };
+          room.bento_actions.push(act);
+        } else {
+          act.title = inp.value;
+        }
+      });
+
+      container.querySelectorAll('.in-std-act-entity').forEach(inp => {
+        const rIdx = parseInt(inp.getAttribute('data-ridx'));
+        const actType = inp.getAttribute('data-act-type');
+        const room = this._config.rooms?.[rIdx];
+        if (!room) return;
+        if (!Array.isArray(room.bento_actions)) room.bento_actions = [...this._getRoomBentoActions(room)];
+        let act = room.bento_actions.find(a => a.type === actType);
+        if (!act) {
+          act = { type: actType, enabled: true, entity_id: inp.value.trim() };
+          room.bento_actions.push(act);
+        } else {
+          act.entity_id = inp.value.trim();
+        }
+      });
+
+      // Collect custom bento action inputs
+      container.querySelectorAll('.in-custom-act-title').forEach(inp => {
+        const rIdx = parseInt(inp.getAttribute('data-ridx'));
+        const caIdx = parseInt(inp.getAttribute('data-caidx'));
+        const room = this._config.rooms?.[rIdx];
+        const customActs = room?.bento_actions?.filter(a => a.type === 'custom');
+        if (customActs?.[caIdx]) {
+          customActs[caIdx].title = inp.value;
+        }
+      });
+
+      container.querySelectorAll('.in-custom-act-entity').forEach(inp => {
+        const rIdx = parseInt(inp.getAttribute('data-ridx'));
+        const caIdx = parseInt(inp.getAttribute('data-caidx'));
+        const room = this._config.rooms?.[rIdx];
+        const customActs = room?.bento_actions?.filter(a => a.type === 'custom');
+        if (customActs?.[caIdx]) {
+          customActs[caIdx].entity_id = inp.value.trim();
+        }
+      });
+
+      // Collect room badge inputs
+      container.querySelectorAll('.in-room-badge-name').forEach(inp => {
+        const rIdx = parseInt(inp.getAttribute('data-ridx'));
+        const bIdx = parseInt(inp.getAttribute('data-bidx'));
+        const room = this._config.rooms?.[rIdx];
+        if (room?.bento_badges?.[bIdx]) {
+          room.bento_badges[bIdx].name = inp.value;
+        }
+      });
+
+      container.querySelectorAll('.in-room-badge-entity').forEach(inp => {
+        const rIdx = parseInt(inp.getAttribute('data-ridx'));
+        const bIdx = parseInt(inp.getAttribute('data-bidx'));
+        const room = this._config.rooms?.[rIdx];
+        if (room?.bento_badges?.[bIdx]) {
+          room.bento_badges[bIdx].entity_id = inp.value.trim();
         }
       });
 
@@ -3779,7 +3913,39 @@ export const settingsMethods = {
     };
 
     const btnSaveFloat = container.querySelector('#btnSaveFloatingSettings');
-    if (btnSaveFloat) btnSaveFloat.onclick = doSave;
+    if (btnSaveFloat) {
+      btnSaveFloat.onpointerdown = (e) => {
+        // Prevent input blur focus race from dropping or delaying click event
+        e.preventDefault();
+      };
+      let isSaving = false;
+      btnSaveFloat.onclick = async (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        if (isSaving) return;
+        isSaving = true;
+
+        const originalHtml = btnSaveFloat.innerHTML;
+        btnSaveFloat.disabled = true;
+        btnSaveFloat.style.opacity = '0.85';
+        btnSaveFloat.innerHTML = `<ha-icon icon="mdi:loading" style="--mdc-icon-size:18px;animation:spin 1s linear infinite;"></ha-icon> <span>${this._t('saving') || 'Speichern...'}</span>`;
+
+        try {
+          await doSave();
+          btnSaveFloat.innerHTML = `<ha-icon icon="mdi:check" style="--mdc-icon-size:18px;color:#86efac;"></ha-icon> <span>${this._t('saved') || 'Gespeichert!'}</span>`;
+          await new Promise(r => setTimeout(r, 600));
+        } catch (err) {
+          console.error('Error saving settings:', err);
+          btnSaveFloat.innerHTML = originalHtml;
+          btnSaveFloat.disabled = false;
+          btnSaveFloat.style.opacity = '1';
+        } finally {
+          isSaving = false;
+        }
+      };
+    }
   },
 
   _markSettingsDirty(container) {
