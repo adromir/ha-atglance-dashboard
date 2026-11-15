@@ -2239,137 +2239,43 @@ export const modalMethods = {
         });
       }
 
-      // 1. Weather / Civil Protection / DWD / NINA
-      Object.keys(this._hass.states).forEach(eId => {
-        const s = this._hass.states[eId];
+      // 1. Weather / Civil Protection / Universal Alerts
+      const states = this._hass.states || {};
+      const targetEntities = (badgeConf?.modal_entities && badgeConf.modal_entities.length > 0)
+        ? badgeConf.modal_entities
+        : Object.keys(states).filter(eId => 
+            !eId.includes('camera') && !eId.includes('battery') && !eId.includes('batterie') &&
+            (eId.includes('warning') || eId.includes('alert') || eId.includes('warnung') ||
+             eId.includes('meteoalarm') || eId.includes('nws') || eId.includes('dwd') || eId.includes('nina') ||
+             (eId.startsWith('weather.') && Array.isArray(states[eId]?.attributes?.alerts)) ||
+             states[eId]?.attributes?.device_class === 'safety' || states[eId]?.attributes?.device_class === 'problem')
+          );
+
+      targetEntities.forEach(eId => {
+        const s = states[eId];
         if (!s) return;
+        const extracted = this._extractAlertsFromEntity(s);
+        extracted.forEach(a => {
+          const timeStr = (a.validFrom && a.validTo)
+            ? `Gültig von ${this._formatWarnTimestamp(a.validFrom)} bis ${this._formatWarnTimestamp(a.validTo)}`
+            : (a.validTo ? `Gültig bis: ${this._formatWarnTimestamp(a.validTo)}` : '');
 
-        // A. DWD Weather Warnings (sensor.region_* / dwd_weather_warnings)
-        if (eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings')) {
-          const count = parseInt(s.attributes?.warning_count ?? s.state, 10);
-          if (!isNaN(count) && count > 0) {
-            for (let i = 1; i <= count; i++) {
-              const headline = s.attributes?.[`warning_${i}_headline`] || s.attributes?.[`warning_${i}_name`] || 'Amtliche Unwetterwarnung';
-              const name = s.attributes?.[`warning_${i}_name`] || '';
-              const desc = s.attributes?.[`warning_${i}_description`] || '';
-              const instruction = s.attributes?.[`warning_${i}_instruction`] || '';
-              const level = parseInt(s.attributes?.[`warning_${i}_level`] || 1, 10);
-              const start = s.attributes?.[`warning_${i}_start`] || '';
-              const end = s.attributes?.[`warning_${i}_end`] || '';
+          const item = {
+            title: a.title,
+            badge: a.badge,
+            desc: a.desc,
+            detail: timeStr,
+            entity_id: a.entity_id,
+            icon: a.icon,
+            iconColor: a.iconColor
+          };
 
-              const fullDesc = [
-                desc,
-                instruction ? `\n💡 Handlungsempfehlung: ${instruction}` : ''
-              ].filter(Boolean).join('\n');
-
-              let levelName = 'Wetterwarnung (Gelb)';
-              let iconColor = '#f59e0b';
-              let isCritical = false;
-              if (level === 2) {
-                levelName = 'Markante Wetterwarnung (Orange)';
-                iconColor = '#f97316';
-              } else if (level === 3) {
-                levelName = 'Unwetterwarnung (Rot)';
-                iconColor = '#ef4444';
-                isCritical = true;
-              } else if (level >= 4) {
-                levelName = 'Extreme Unwetterwarnung (Violett)';
-                iconColor = '#9333ea';
-                isCritical = true;
-              }
-
-              const timeStr = (start && end)
-                ? `Gültig von ${this._formatWarnTimestamp(start)} bis ${this._formatWarnTimestamp(end)}`
-                : (end ? `Gültig bis: ${this._formatWarnTimestamp(end)}` : '');
-
-              const item = {
-                title: headline,
-                badge: `DWD • ${levelName}`,
-                desc: fullDesc,
-                detail: timeStr,
-                entity_id: eId,
-                icon: 'mdi:weather-lightning',
-                iconColor: iconColor
-              };
-
-              if (isCritical) {
-                criticalWarnings.push(item);
-              } else {
-                warnings.push(item);
-              }
-            }
+          if (a.isCritical) {
+            criticalWarnings.push(item);
+          } else {
+            warnings.push(item);
           }
-        }
-
-        // B. NINA Civil Protection (binary_sensor.warning_* / nina)
-        else if (eId.startsWith('binary_sensor.warning_') || eId.includes('nina')) {
-          if (s.state === 'on') {
-            let headline = s.attributes?.Headline || s.attributes?.headline || s.attributes?.event;
-            if (!headline) {
-              const numMatch = eId.match(/_(\d+)$/);
-              const idx = numMatch ? numMatch[1] : '1';
-              const comp = Object.keys(this._hass.states).find(k => k.startsWith('sensor.') && k.includes('uberschrift') && k.endsWith(`_${idx}`));
-              if (comp && this._hass.states[comp]?.state && this._hass.states[comp].state !== 'unavailable') {
-                headline = this._hass.states[comp].state;
-              }
-            }
-            headline = headline || 'NINA Gefahrenwarnung';
-
-            const desc = s.attributes?.Description || s.attributes?.description || '';
-            const severity = (s.attributes?.Severity || s.attributes?.severity || '').toLowerCase();
-            const sender = s.attributes?.Sender || s.attributes?.sender || '';
-            const expires = s.attributes?.Expires || s.attributes?.expires || '';
-
-            const isCritical = severity === 'extreme' || severity === 'severe';
-            const iconColor = isCritical ? '#ef4444' : '#f59e0b';
-            const sevLabel = severity ? severity.toUpperCase() : 'WARNUNG';
-
-            const timeStr = expires ? `Gültig bis: ${this._formatWarnTimestamp(expires)}` : '';
-            const senderStr = sender ? `Herausgeber: ${sender}` : '';
-            const detailStr = [senderStr, timeStr].filter(Boolean).join(' • ');
-
-            const item = {
-              title: headline,
-              badge: `NINA • ${sevLabel}`,
-              desc: desc,
-              detail: detailStr,
-              entity_id: eId,
-              icon: 'mdi:alert-decagram',
-              iconColor: iconColor
-            };
-
-            if (isCritical) {
-              criticalWarnings.push(item);
-            } else {
-              warnings.push(item);
-            }
-          }
-        }
-
-        // C. General other warnings
-        else if (eId.includes('warning') && !eId.includes('camera') && !eId.includes('battery')) {
-          const isNumActive = !isNaN(parseInt(s.state)) && parseInt(s.state) > 0;
-          const isBoolActive = s.state === 'on';
-          if (isNumActive || isBoolActive) {
-            const headline = s.attributes?.headline || s.attributes?.Headline || s.attributes?.event || s.attributes?.description || s.attributes?.friendly_name || 'Amtliche Unwetterwarnung';
-            const desc = s.attributes?.description || s.attributes?.Description || s.attributes?.instruction || s.attributes?.details || '';
-            const severity = (s.attributes?.severity || s.attributes?.Severity || '').toLowerCase();
-            const valid = s.attributes?.valid_to || s.attributes?.expires || s.attributes?.Expires || '';
-            const item = {
-              title: headline,
-              desc: desc !== headline ? desc : '',
-              detail: valid ? `Gültig bis: ${this._formatWarnTimestamp(valid)}` : '',
-              entity_id: eId,
-              icon: 'mdi:alert-decagram',
-              iconColor: '#ef4444'
-            };
-            if (severity === 'minor' || severity === 'moderate') {
-              warnings.push(item);
-            } else {
-              criticalWarnings.push(item);
-            }
-          }
-        }
+        });
       });
 
       // 2. Safety / Danger sensors (Smoke, Gas, CO, Moisture/Leak, Triggered Alarm)
@@ -2510,39 +2416,35 @@ export const modalMethods = {
       // Render Modal Content
       const totalCount = criticalWarnings.length + warnings.length + notices.length;
 
-      // Check installed warning services
-      const states = this._hass.states || {};
-      const dwdSensor = Object.keys(states).find(e => e.startsWith('sensor.region_') || e.includes('dwd_weather_warnings'));
-      const dwdRegion = dwdSensor ? (states[dwdSensor]?.attributes?.region_name || 'Aktiv') : null;
+      // Check installed warning services dynamically
+      const detectedServices = this._getDetectedWarningServices ? this._getDetectedWarningServices() : [];
+      const hasServices = detectedServices.length > 0;
 
-      const ninaSensor = Object.keys(states).find(e => e.startsWith('binary_sensor.warning_') || e.includes('nina'));
-      const ninaRegion = ninaSensor ? (states[ninaSensor]?.attributes?.friendly_name?.replace(/ Warnung \d+$/, '') || 'Aktiv') : null;
-
-      const hasServices = Boolean(dwdRegion || ninaRegion);
       const providersHtml = `
         <div style="margin-top:16px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">
             ${this._t('monitored_warning_services') || 'Überwachte Warndienste'}
           </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            <div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;">
-              <span class="chip-dot" style="background:${dwdRegion ? '#10b981' : '#6b7280'};"></span>
-              <span style="color:${dwdRegion ? 'var(--text-primary)' : 'var(--text-secondary)'};font-weight:600;">
-                DWD: ${dwdRegion ? `${dwdRegion} ✓` : (this._t('not_configured') || 'Nicht eingerichtet')}
-              </span>
-            </div>
-            <div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;">
-              <span class="chip-dot" style="background:${ninaRegion ? '#10b981' : '#6b7280'};"></span>
-              <span style="color:${ninaRegion ? 'var(--text-primary)' : 'var(--text-secondary)'};font-weight:600;">
-                NINA: ${ninaRegion ? `${ninaRegion} ✓` : (this._t('not_configured') || 'Nicht eingerichtet')}
-              </span>
-            </div>
+            ${hasServices ? detectedServices.map(srv => `
+              <div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;">
+                <span class="chip-dot" style="background:#10b981;"></span>
+                <span style="color:var(--text-primary);font-weight:600;">
+                  ${srv.name}${srv.region ? `: ${srv.region}` : ''} ✓
+                </span>
+              </div>
+            `).join('') : `
+              <div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);">
+                <span class="chip-dot" style="background:#6b7280;"></span>
+                <span>${this._t('not_configured') || 'Nicht eingerichtet'}</span>
+              </div>
+            `}
           </div>
         </div>
         ${!hasServices ? `
           <div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;font-size:11px;display:flex;align-items:center;gap:6px;">
             <ha-icon icon="mdi:information-outline" style="--mdc-icon-size:14px;"></ha-icon>
-            <span>${this._t('no_warning_services_hint') || 'Keine Wetter- oder Katastrophenwarndienste (DWD/NINA) in Home Assistant gefunden.'}</span>
+            <span>${this._t('no_warning_services_hint') || 'Keine Wetter- oder Notfallwarndienste in Home Assistant eingerichtet.'}</span>
           </div>
         ` : ''}
       `;

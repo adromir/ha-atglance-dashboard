@@ -1135,12 +1135,12 @@ export const settingsMethods = {
 
                 let extraBadgeStatus = '';
                 if (b.id === 'warnings') {
-                  const states = this._hass?.states || {};
-                  const hasDwd = Object.keys(states).some(e => e.startsWith('sensor.region_') || e.includes('dwd_weather_warnings'));
-                  const hasNina = Object.keys(states).some(e => e.startsWith('binary_sensor.warning_') || e.includes('nina'));
-                  if (hasDwd || hasNina) {
-                    const activeNames = [hasDwd ? 'DWD ✓' : null, hasNina ? 'NINA ✓' : null].filter(Boolean).join(' & ');
-                    extraBadgeStatus = `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.15);color:#10b981;letter-spacing:0.3px;">${activeNames}</span>`;
+                  const srvs = this._getDetectedWarningServices ? this._getDetectedWarningServices() : [];
+                  if (srvs.length > 0) {
+                    const label = srvs.length <= 2 
+                      ? srvs.map(s => s.name + ' ✓').join(' & ') 
+                      : `${srvs.length} ${this._t('services_connected') || 'Dienste aktiv'}`;
+                    extraBadgeStatus = `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.15);color:#10b981;letter-spacing:0.3px;">${label}</span>`;
                   } else {
                     extraBadgeStatus = `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(245,158,11,0.15);color:#f59e0b;letter-spacing:0.3px;">${this._t('not_configured') || 'Nicht eingerichtet'}</span>`;
                   }

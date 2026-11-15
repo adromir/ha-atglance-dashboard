@@ -223,6 +223,203 @@ class AtGlancePanel extends HTMLElement {
     }) || Object.keys(this._hass.states).find(e => e.startsWith('binary_sensor.') && this._hass.states[e].attributes?.device_class === 'door') || null;
   }
 
+  _getDetectedWarningServices() {
+    const states = this._hass?.states || {};
+    const services = new Map();
+    const isExcluded = (id) => id.includes('camera') || id.includes('battery') || id.includes('batterie') || id.includes('update.');
+
+    Object.keys(states).forEach(eId => {
+      if (isExcluded(eId)) return;
+      const s = states[eId];
+      if (!s) return;
+
+      const attr = s.attributes || {};
+      const dc = attr.device_class;
+
+      // 1. Indexed warnings (DWD, etc.)
+      if (attr.warning_count !== undefined || attr.warning_1_headline || attr.warning_1_name) {
+        const provName = attr.attribution?.replace(/^Data provided by\s*/i, '').trim() || (eId.includes('dwd') ? 'DWD' : 'Weather Alert');
+        const region = attr.region_name || attr.friendly_name?.replace(/\s*(Aktuelle\s*)?Warnstufe.*$/i, '') || '';
+        const key = `${provName}_${region}`;
+        if (!services.has(key)) {
+          services.set(key, { name: provName, region: region, entity_id: eId });
+        }
+        return;
+      }
+
+      // 2. Weather entities with alert arrays (OpenWeatherMap, WeatherKit, Tomorrow.io, NWS Weather)
+      if (eId.startsWith('weather.') && Array.isArray(attr.alerts)) {
+        const provName = attr.attribution?.replace(/^Data provided by\s*/i, '').trim() || eId.replace('weather.', '').toUpperCase();
+        const region = attr.friendly_name || '';
+        const key = `weather_${provName}_${region}`;
+        if (!services.has(key)) {
+          services.set(key, { name: provName, region: region, entity_id: eId });
+        }
+        return;
+      }
+
+      // 3. Civil protection & weather alert platforms (MeteoAlarm, NWS, Environment Canada, NINA, Meteo-France, etc.)
+      const isKnownWarningEntity = 
+        eId.includes('nina') || 
+        eId.includes('meteoalarm') || 
+        eId.includes('nws') || 
+        eId.includes('env_canada') ||
+        eId.includes('meteo_france') ||
+        eId.startsWith('binary_sensor.warning_') ||
+        (eId.startsWith('binary_sensor.') && (dc === 'safety' || dc === 'problem') && (eId.includes('warn') || eId.includes('alert') || attr.friendly_name?.toLowerCase().includes('warn') || attr.friendly_name?.toLowerCase().includes('alert')));
+
+      if (isKnownWarningEntity) {
+        let provName = 'Alert Service';
+        if (eId.includes('nina') || attr.Sender?.includes('BBK') || attr.sender?.includes('BBK')) provName = 'NINA';
+        else if (eId.includes('meteoalarm')) provName = 'MeteoAlarm';
+        else if (eId.includes('nws')) provName = 'NWS';
+        else if (eId.includes('env_canada')) provName = 'Environment Canada';
+        else if (eId.includes('meteo_france')) provName = 'Météo-France';
+        else if (attr.attribution) provName = attr.attribution.replace(/^Data provided by\s*/i, '').trim();
+        else if (attr.Sender || attr.sender) provName = attr.Sender || attr.sender;
+
+        let region = attr.friendly_name || '';
+        region = region.replace(/\s*Warnung\s*\d+.*$/i, '').replace(/\s*Warning\s*\d+.*$/i, '').trim();
+        const key = `${provName}_${region}`;
+        if (!services.has(key)) {
+          services.set(key, { name: provName, region: region, entity_id: eId });
+        }
+      }
+    });
+
+    return Array.from(services.values());
+  }
+
+  _extractAlertsFromEntity(s) {
+    if (!s) return [];
+    const alerts = [];
+    const attr = s.attributes || {};
+    const eId = s.entity_id;
+
+    // Pattern A: Indexed warnings (e.g. DWD)
+    if (attr.warning_count !== undefined || attr.warning_1_headline || attr.warning_1_name) {
+      const count = parseInt(attr.warning_count ?? s.state, 10);
+      if (!isNaN(count) && count > 0) {
+        const prov = attr.attribution?.replace(/^Data provided by\s*/i, '').trim() || (eId.includes('dwd') ? 'DWD' : 'Weather Alert');
+        for (let i = 1; i <= count; i++) {
+          const headline = attr[`warning_${i}_headline`] || attr[`warning_${i}_name`];
+          if (!headline) continue;
+          const name = attr[`warning_${i}_name`] || headline;
+          const desc = attr[`warning_${i}_description`] || '';
+          const instruction = attr[`warning_${i}_instruction`] || '';
+          const level = parseInt(attr[`warning_${i}_level`] || 1, 10);
+          const start = attr[`warning_${i}_start`] || '';
+          const end = attr[`warning_${i}_end`] || '';
+
+          const fullDesc = [desc, instruction ? `\n💡 Handlungsempfehlung: ${instruction}` : ''].filter(Boolean).join('\n');
+
+          const isCritical = level >= 3;
+          const iconColor = isCritical ? (level >= 4 ? '#9333ea' : '#ef4444') : (level === 2 ? '#f97316' : '#f59e0b');
+          const levelText = level >= 4 ? 'Extreme Warnung' : (level === 3 ? 'Unwetterwarnung' : (level === 2 ? 'Markante Warnung' : 'Wetterwarnung'));
+
+          alerts.push({
+            title: headline,
+            shortName: name,
+            source: prov,
+            badge: `${prov} • ${levelText}`,
+            desc: fullDesc,
+            level: level,
+            isCritical: isCritical,
+            validFrom: start,
+            validTo: end,
+            entity_id: eId,
+            icon: 'mdi:weather-lightning',
+            iconColor: iconColor
+          });
+        }
+      }
+      return alerts;
+    }
+
+    // Pattern B: Weather entities with alerts array (OpenWeatherMap, WeatherKit, Tomorrow.io, NWS Weather)
+    if (eId.startsWith('weather.') && Array.isArray(attr.alerts) && attr.alerts.length > 0) {
+      const prov = attr.attribution?.replace(/^Data provided by\s*/i, '').trim() || 'Weather';
+      attr.alerts.forEach(a => {
+        const title = a.title || a.event || a.headline || 'Weather Alert';
+        const desc = a.description || '';
+        const instruction = a.instruction || '';
+        const sev = (a.severity || '').toLowerCase();
+        const isCritical = sev === 'extreme' || sev === 'severe' || sev === 'red';
+        const fullDesc = [desc, instruction ? `\n💡 Handlungsempfehlung: ${instruction}` : ''].filter(Boolean).join('\n');
+
+        alerts.push({
+          title: title,
+          shortName: a.event || title,
+          source: prov,
+          badge: `${prov} • ${(a.severity || 'ALERT').toUpperCase()}`,
+          desc: fullDesc,
+          level: isCritical ? 3 : 2,
+          isCritical: isCritical,
+          validFrom: a.start || '',
+          validTo: a.end || a.expires || '',
+          entity_id: eId,
+          icon: 'mdi:weather-lightning',
+          iconColor: isCritical ? '#ef4444' : '#f59e0b'
+        });
+      });
+      return alerts;
+    }
+
+    // Pattern C: Binary sensors & Sensors reporting warning state (NINA, MeteoAlarm, NWS, Environment Canada, etc.)
+    const isNumActive = !isNaN(parseInt(s.state, 10)) && parseInt(s.state, 10) > 0;
+    const isBoolActive = s.state === 'on' || s.state === 'problem' || s.state === 'alarm' || s.state === 'triggered';
+    const isAlertState = ['warning', 'watch', 'alert', 'yellow', 'orange', 'red'].includes((s.state || '').toLowerCase());
+
+    if (isNumActive || isBoolActive || isAlertState) {
+      let headline = attr.Headline || attr.headline || attr.event || attr.title || attr.warning;
+      if (!headline) {
+        const numMatch = eId.match(/_(\d+)$/);
+        const idx = numMatch ? numMatch[1] : '1';
+        const comp = Object.keys(this._hass?.states || {}).find(k => k.startsWith('sensor.') && k.includes('uberschrift') && k.endsWith(`_${idx}`));
+        if (comp && this._hass.states[comp]?.state && this._hass.states[comp].state !== 'unavailable') {
+          headline = this._hass.states[comp].state;
+        }
+      }
+      headline = headline || attr.friendly_name || 'Alert';
+
+      const desc = attr.Description || attr.description || attr.details || '';
+      const instruction = attr.instruction || attr.Instruction || '';
+      const fullDesc = [desc, instruction ? `\n💡 Handlungsempfehlung: ${instruction}` : ''].filter(Boolean).join('\n');
+
+      const sev = (attr.Severity || attr.severity || attr.level || '').toString().toLowerCase();
+      const isCritical = sev === 'extreme' || sev === 'severe' || sev === 'red' || s.state === 'alarm' || s.state === 'triggered';
+
+      let prov = 'Alert';
+      if (eId.includes('nina') || attr.Sender?.includes('BBK') || attr.sender?.includes('BBK')) prov = 'NINA';
+      else if (eId.includes('meteoalarm')) prov = 'MeteoAlarm';
+      else if (eId.includes('nws')) prov = 'NWS';
+      else if (eId.includes('env_canada')) prov = 'Environment Canada';
+      else if (eId.includes('meteo_france')) prov = 'Météo-France';
+      else if (attr.attribution) prov = attr.attribution.replace(/^Data provided by\s*/i, '').trim();
+      else if (attr.Sender || attr.sender) prov = attr.Sender || attr.sender;
+
+      const expires = attr.Expires || attr.expires || attr.valid_to || '';
+      const start = attr.Start || attr.start || attr.valid_from || '';
+
+      alerts.push({
+        title: headline,
+        shortName: attr.event || headline,
+        source: prov,
+        badge: `${prov} • ${(attr.severity || (isCritical ? 'CRITICAL' : 'WARNING')).toString().toUpperCase()}`,
+        desc: fullDesc,
+        level: isCritical ? 3 : 2,
+        isCritical: isCritical,
+        validFrom: start,
+        validTo: expires,
+        entity_id: eId,
+        icon: 'mdi:alert-decagram',
+        iconColor: isCritical ? '#ef4444' : '#f59e0b'
+      });
+    }
+
+    return alerts;
+  }
+
   _fallbackSvgCurve(currentVal) {
     const c = parseFloat(currentVal) || 21.0;
     return {
@@ -1020,7 +1217,7 @@ class AtGlancePanel extends HTMLElement {
       }
     }
 
-    // Warning / DWD / NINA Chip
+    // Warning / Weather / Civil Alerts Chip
     const chipWarning = this.shadowRoot.getElementById('chipWarning');
     if (chipWarning) {
       const badgeConf = this._config?.top_bar_badges?.warnings;
@@ -1028,68 +1225,34 @@ class AtGlancePanel extends HTMLElement {
       const activeAlerts = [];
       if (isEnabled) {
         const states = this._hass.states || {};
-        Object.keys(states).forEach(eId => {
+        const targetEntities = (badgeConf?.modal_entities && badgeConf.modal_entities.length > 0)
+          ? badgeConf.modal_entities
+          : Object.keys(states).filter(eId => 
+              !eId.includes('camera') && !eId.includes('battery') && !eId.includes('batterie') &&
+              (eId.includes('warning') || eId.includes('alert') || eId.includes('warnung') ||
+               eId.includes('meteoalarm') || eId.includes('nws') || eId.includes('dwd') || eId.includes('nina') ||
+               (eId.startsWith('weather.') && Array.isArray(states[eId]?.attributes?.alerts)) ||
+               states[eId]?.attributes?.device_class === 'safety' || states[eId]?.attributes?.device_class === 'problem')
+            );
+
+        targetEntities.forEach(eId => {
           const s = states[eId];
-          if (!s) return;
-
-          // 1. DWD Weather Warnings
-          if (eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings')) {
-            const count = parseInt(s.attributes?.warning_count ?? s.state, 10);
-            if (!isNaN(count) && count > 0) {
-              for (let i = 1; i <= Math.min(count, 5); i++) {
-                const name = s.attributes?.[`warning_${i}_name`] || s.attributes?.[`warning_${i}_headline`];
-                if (name) {
-                  activeAlerts.push({
-                    text: `DWD: ${name}`,
-                    level: parseInt(s.attributes?.[`warning_${i}_level`] || 1, 10)
-                  });
-                }
-              }
-              if (activeAlerts.length === 0) {
-                const name = s.attributes?.warning_1_name || s.attributes?.warning_1_headline;
-                if (name) activeAlerts.push({ text: `DWD: ${name}`, level: 1 });
-              }
-            }
-          }
-
-          // 2. NINA Civil Protection Warnings
-          else if (eId.startsWith('binary_sensor.warning_') || eId.includes('nina')) {
-            if (s.state === 'on') {
-              let headline = s.attributes?.Headline || s.attributes?.headline || s.attributes?.event;
-              if (!headline) {
-                const numMatch = eId.match(/_(\d+)$/);
-                const idx = numMatch ? numMatch[1] : '1';
-                const comp = Object.keys(states).find(k => k.startsWith('sensor.') && k.includes('uberschrift') && k.endsWith(`_${idx}`));
-                if (comp && states[comp]?.state && states[comp].state !== 'unavailable') {
-                  headline = states[comp].state;
-                }
-              }
-              const sev = (s.attributes?.Severity || s.attributes?.severity || '').toLowerCase();
-              const lvl = (sev === 'extreme' || sev === 'severe') ? 3 : 1;
-              activeAlerts.push({
-                text: headline ? `NINA: ${headline}` : 'NINA Warnung',
-                level: lvl
-              });
-            }
-          }
-
-          // 3. Other generic warnings
-          else if (eId.includes('warning') && !eId.includes('camera') && !eId.includes('battery')) {
-            if (s.state === 'on' || (!isNaN(parseInt(s.state, 10)) && parseInt(s.state, 10) > 0)) {
-              const head = s.attributes?.headline || s.attributes?.Headline || s.attributes?.event || s.attributes?.friendly_name;
-              if (head) activeAlerts.push({ text: head, level: 2 });
-            }
+          if (s) {
+            const extracted = this._extractAlertsFromEntity(s);
+            activeAlerts.push(...extracted);
           }
         });
       }
       if (activeAlerts.length > 0) {
         const maxLevel = Math.max(...activeAlerts.map(a => a.level || 1));
         const iconColor = maxLevel >= 3 ? '#ef4444' : (badgeConf?.icon_color || '#f59e0b');
+        const first = activeAlerts[0];
+        const firstLabel = first.source ? `${first.source}: ${first.shortName || first.title}` : (first.shortName || first.title);
         const displayText = activeAlerts.length === 1 
-          ? activeAlerts[0].text 
-          : `${activeAlerts.length} ${this._t('warnings_label') || 'Warnungen'}: ${activeAlerts[0].text}`;
+          ? firstLabel 
+          : `${activeAlerts.length} ${this._t('warnings_label') || 'Warnungen'}: ${firstLabel}`;
         chipWarning.style.display = 'inline-flex';
-        chipWarning.title = activeAlerts.map(a => a.text).join('\n');
+        chipWarning.title = activeAlerts.map(a => a.source ? `${a.source}: ${a.title}` : a.title).join('\n');
         chipWarning.innerHTML = `<span class="chip-dot" style="background:${iconColor};box-shadow:0 0 8px ${iconColor};"></span> ${this._icon('alert-circle', { size: 14, color: iconColor, style: 'margin-right:4px;' })} ${displayText}`;
       } else {
         chipWarning.style.display = 'none';
@@ -2188,7 +2351,11 @@ class AtGlancePanel extends HTMLElement {
         findDefaults: () => {
           const found = [];
           Object.keys(states).forEach(eId => {
-            if (eId.startsWith('binary_sensor.warning_') || eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings') || eId.includes('nina') || (eId.includes('warning') && !eId.includes('camera'))) {
+            if (!eId.includes('camera') && !eId.includes('battery') && !eId.includes('batterie') &&
+                (eId.includes('warning') || eId.includes('alert') || eId.includes('warnung') ||
+                 eId.includes('meteoalarm') || eId.includes('nws') || eId.includes('dwd') || eId.includes('nina') ||
+                 (eId.startsWith('weather.') && Array.isArray(states[eId]?.attributes?.alerts)) ||
+                 states[eId]?.attributes?.device_class === 'safety' || states[eId]?.attributes?.device_class === 'problem')) {
               found.push(eId);
             }
           });
