@@ -14,6 +14,31 @@ Starting with **v1.0.0**, AtGlance Dashboard installs cleanly as a single **HACS
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/adromir/ha-atglance-dashboard/main/Screenshots/Theme-Dark.png" alt="AtGlance Spatial Dashboard Dark Mode" width="800">
+</p>
+<p align="center">
+  <em>AtGlance Dashboard Dark Mode: Bento room cards, reactive badges, tactile controls, and floating dock.</em>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/adromir/ha-atglance-dashboard/main/Screenshots/Theme-Dark-modal.png" alt="AtGlance Control Center Modal" width="800">
+</p>
+<p align="center">
+  <em>Interactive Device & Helper Control Center modal with categorized entities, quick toggles, and live stats.</em>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/adromir/ha-atglance-dashboard/main/Screenshots/Theme-Light.png" alt="AtGlance Spatial Dashboard Light Mode" width="800">
+</p>
+<p align="center">
+  <em>AtGlance Dashboard Light Mode: Frosted glass aesthetics in luminous daylight atmosphere.</em>
+</p>
+
+---
+
 ## 🌟 The Full Experience Suite
 
 For the ultimate spatial experience across your entire Home Assistant setup, combine AtGlance Dashboard with the companion theme and automatic theme switcher:
