@@ -1988,15 +1988,15 @@ export const modalMethods = {
 
       // Room filter pills
       const filterPillsHtml = `
-        <div class="room-filter-pills" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;scrollbar-width:none;">
-          <button class="room-filter-pill ${selectedRoomId === '_all' ? 'active' : ''}" data-room-id="_all" style="padding:6px 14px;border-radius:20px;border:1px solid ${selectedRoomId === '_all' ? 'var(--accent)' : 'var(--border-subtle)'};background:${selectedRoomId === '_all' ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.04)'};color:${selectedRoomId === '_all' ? 'var(--accent)' : 'var(--text-primary)'};font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;">
+        <div class="room-filter-pills">
+          <button class="room-filter-pill ${selectedRoomId === '_all' ? 'active' : ''}" data-room-id="_all">
             <ha-icon icon="mdi:home-variant-outline" style="--mdc-icon-size:14px;"></ha-icon>
             <span>${this._t('all_rooms') || 'Alle Räume'}</span>
           </button>
           ${rooms.map(r => {
             const isSel = selectedRoomId === r.id;
             return `
-              <button class="room-filter-pill ${isSel ? 'active' : ''}" data-room-id="${r.id}" style="padding:6px 14px;border-radius:20px;border:1px solid ${isSel ? 'var(--accent)' : 'var(--border-subtle)'};background:${isSel ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.04)'};color:${isSel ? 'var(--accent)' : 'var(--text-primary)'};font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;">
+              <button class="room-filter-pill ${isSel ? 'active' : ''}" data-room-id="${r.id}">
                 <ha-icon icon="mdi:door-open" style="--mdc-icon-size:14px;"></ha-icon>
                 <span>${r.name || r.id}</span>
               </button>
@@ -2073,14 +2073,14 @@ export const modalMethods = {
       }
 
       body.innerHTML = `
-        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:10px;padding:6px 12px;flex:1;min-width:200px;">
+        <div class="devices-search-box" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--bg-pill, rgba(255,255,255,0.06));border:1px solid var(--border-subtle);border-radius:10px;padding:8px 12px;flex:1;min-width:200px;">
             <ha-icon icon="mdi:magnify" style="--mdc-icon-size:18px;color:var(--accent);flex-shrink:0;"></ha-icon>
             <input type="text" id="devicesSearchInp" value="${this._devicesSearchQuery || ''}" placeholder="Geräte & Schalter durchsuchen..." style="flex:1;background:transparent;border:none;outline:none;color:var(--text-primary);font-size:13px;">
           </div>
         </div>
         ${filterPillsHtml}
-        <div id="devicesModalListContainer">${contentHtml}</div>
+        <div id="devicesModalListContainer" style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;width:100%;">${contentHtml}</div>
       `;
 
       body.querySelectorAll('.room-filter-pill').forEach(pill => {

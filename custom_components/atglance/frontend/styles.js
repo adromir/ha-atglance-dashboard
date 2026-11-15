@@ -1572,6 +1572,80 @@ export const ATGLANCE_STYLES = `
           gap: 16px;
         }
 
+        .modal-body > * {
+          flex-shrink: 0;
+        }
+
+        /* Room Filter Pills in Control Center Modal */
+        .room-filter-pills {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding: 4px 2px 10px 2px;
+          margin: 0;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          flex-shrink: 0;
+          min-height: 46px;
+          box-sizing: border-box;
+          width: 100%;
+          align-items: center;
+        }
+        .room-filter-pills::-webkit-scrollbar {
+          display: none;
+          width: 0;
+          height: 0;
+        }
+
+        .room-filter-pill {
+          padding: 6px 14px;
+          height: 32px;
+          min-height: 32px;
+          border-radius: 20px;
+          border: 1px solid var(--border-subtle);
+          background: rgba(255, 255, 255, 0.06);
+          color: var(--text-primary);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+          box-sizing: border-box;
+          transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease, color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .room-filter-pill:hover {
+          background: rgba(56, 189, 248, 0.14);
+          border-color: var(--accent);
+          transform: translateY(-1px);
+        }
+        .room-filter-pill.active {
+          border-color: var(--accent);
+          background: rgba(56, 189, 248, 0.22);
+          color: var(--accent);
+          font-weight: 700;
+          box-shadow: 0 0 14px rgba(56, 189, 248, 0.28);
+        }
+
+        .theme-light .room-filter-pill {
+          background: rgba(0, 0, 0, 0.04);
+          border-color: rgba(148, 163, 184, 0.35);
+          color: var(--text-primary);
+        }
+        .theme-light .room-filter-pill:hover {
+          background: rgba(2, 132, 199, 0.08);
+          border-color: var(--accent);
+        }
+        .theme-light .room-filter-pill.active {
+          background: rgba(2, 132, 199, 0.15);
+          border-color: var(--accent);
+          color: var(--accent);
+          box-shadow: 0 1px 4px rgba(2, 132, 199, 0.18);
+        }
+
         /* Compact Dropdown / Popover for Auswahllisten / Badges */
         .compact-select-container {
           position: relative;
