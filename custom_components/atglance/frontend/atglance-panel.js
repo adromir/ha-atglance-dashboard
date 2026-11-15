@@ -845,7 +845,7 @@ class AtGlancePanel extends HTMLElement {
       const gL = glanceEl.querySelector('#glanceLights');
       if (gL) gL.onclick = (e) => { e.stopPropagation(); openDockOrModal('lighting'); };
       const gW = glanceEl.querySelector('#glanceWindows');
-      if (gW) gW.onclick = (e) => { e.stopPropagation(); openDockOrModal('security'); };
+      if (gW) gW.onclick = (e) => { e.stopPropagation(); openDockOrModal('windows'); };
       const gLo = glanceEl.querySelector('#glanceLock');
       if (gLo) gLo.onclick = (e) => { e.stopPropagation(); openDockOrModal('security'); };
     }
@@ -1113,7 +1113,8 @@ class AtGlancePanel extends HTMLElement {
     }
 
     // Lock & Door Chip (3 states)
-    const lockEntity = this._config.lock_entity || 'lock.wohnungsschloss';
+    const lockEntity = this._getLockEntity();
+    const doorEntity = this._getDoorEntity();
     const chipLock = this.shadowRoot.getElementById('chipLock');
     if (chipLock) {
       const badgeConf = this._config?.top_bar_badges?.lock;
@@ -1124,17 +1125,62 @@ class AtGlancePanel extends HTMLElement {
         chipLock.style.display = 'inline-flex';
         const iconColor = badgeConf?.icon_color;
         const iconStyle = iconColor ? `color:${iconColor};margin-right:4px;` : 'margin-right:4px;';
-        const lockObj = this._hass.states[lockEntity];
-        const doorObj = this._hass.states['binary_sensor.turkontakt_hausture_contact'];
-        const isLocked = lockObj && lockObj.state === 'locked';
-        const isDoorOpen = doorObj && doorObj.state === 'on';
+        const lockObj = lockEntity ? this._hass.states[lockEntity] : null;
+        const doorObj = doorEntity ? this._hass.states[doorEntity] : null;
+        const isLocked = lockObj ? lockObj.state === 'locked' : false;
+        const isDoorOpen = doorObj ? doorObj.state === 'on' : false;
 
         if (isDoorOpen) {
-          chipLock.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('door-open', { size: 14, cls: 'icon-climate', style: iconStyle })} ${this._t('door_open')}`;
-        } else if (!isLocked) {
-          chipLock.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('lock-open', { size: 14, cls: 'icon-light', style: iconStyle })} ${this._t('door_closed_unlocked')}`;
+          chipLock.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('door-open', { size: 14, cls: 'icon-climate', style: iconStyle })} ${this._t('door_open') || 'Tür offen'}`;
+        } else if (!isLocked && lockObj) {
+          chipLock.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('lock-open', { size: 14, cls: 'icon-light', style: iconStyle })} ${this._t('door_unlocked_short') || 'Entriegelt'}`;
         } else {
-          chipLock.innerHTML = `<span class="chip-dot dot-green"></span> ${this._icon('lock-closed', { size: 14, cls: 'icon-security', style: iconStyle })} ${this._t('door_closed_locked')}`;
+          chipLock.innerHTML = `<span class="chip-dot dot-green"></span> ${this._icon('lock-closed', { size: 14, cls: 'icon-security', style: iconStyle })} ${this._t('door_locked_short') || 'Verriegelt'}`;
+        }
+      }
+    }
+
+    // Windows Chip
+    const chipWindows = this.shadowRoot.getElementById('chipWindows');
+    if (chipWindows) {
+      const badgeConf = this._config?.top_bar_badges?.windows;
+      const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_windows !== false);
+      if (!isEnabled) {
+        chipWindows.style.display = 'none';
+      } else {
+        chipWindows.style.display = 'inline-flex';
+        const iconColor = badgeConf?.icon_color;
+        const iconStyle = iconColor ? `color:${iconColor};margin-right:4px;` : 'margin-right:4px;';
+
+        const customWindowEnts = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities) && badgeConf.modal_entities.length > 0)
+          ? badgeConf.modal_entities
+          : null;
+
+        let windowEntities = [];
+        if (customWindowEnts) {
+          windowEntities = customWindowEnts.filter(e => this._hass?.states?.[e]);
+        } else {
+          const wSet = new Set();
+          (this._config.rooms || []).forEach(r => {
+            if (r.window_entity && this._hass?.states?.[r.window_entity]) wSet.add(r.window_entity);
+          });
+          if (this._hass?.states) {
+            Object.keys(this._hass.states).forEach(e => {
+              if (e.startsWith('binary_sensor.') && this._hass.states[e]?.attributes?.device_class === 'window') {
+                wSet.add(e);
+              }
+            });
+          }
+          windowEntities = Array.from(wSet);
+        }
+
+        const openWindows = windowEntities.filter(e => this._hass?.states?.[e]?.state === 'on');
+        const count = openWindows.length;
+
+        if (count > 0) {
+          chipWindows.innerHTML = `<span class="chip-dot dot-amber"></span> ${this._icon('window-open', { size: 14, cls: 'icon-climate', style: iconStyle })} ${count} ${count === 1 ? (this._t('window_open_single') || 'Fenster offen') : (this._t('windows_open_multi') || 'Fenster offen')}`;
+        } else {
+          chipWindows.innerHTML = `<span class="chip-dot dot-gray"></span> ${this._icon('window', { size: 14, cls: 'icon-security', style: iconStyle })} ${this._t('windows_all_closed') || 'Fenster zu'}`;
         }
       }
     }
@@ -2172,6 +2218,22 @@ class AtGlancePanel extends HTMLElement {
         }
       },
       {
+        id: 'windows',
+        defaultColor: '#38bdf8',
+        findDefaults: () => {
+          const found = [];
+          rooms.forEach(r => {
+            if (r.window_entity && states[r.window_entity] && !found.includes(r.window_entity)) {
+              found.push(r.window_entity);
+            }
+          });
+          Object.keys(states).filter(e => e.startsWith('binary_sensor.') && states[e]?.attributes?.device_class === 'window').forEach(e => {
+            if (!found.includes(e)) found.push(e);
+          });
+          return found;
+        }
+      },
+      {
         id: 'lock',
         defaultColor: '#10b981',
         findDefaults: () => {
@@ -2303,6 +2365,7 @@ class AtGlancePanel extends HTMLElement {
             <div class="chip" id="chipMedia" style="display:none;"></div>
             <div class="chip" id="chipLights">${this._icon('light', { size: 14, cls: 'icon-light', style: 'margin-right:4px;' })} ${this._t('lights_loading')}</div>
             <div class="chip" id="chipClimate">${this._icon('climate', { size: 14, cls: 'icon-climate', style: 'margin-right:4px;' })} ${this._t('climate_loading')}</div>
+            <div class="chip" id="chipWindows">${this._icon('window-open', { size: 14, cls: 'icon-weather', style: 'margin-right:4px;' })} ${this._t('windows_loading') || 'Fenster...'}</div>
             <div class="chip" id="chipLock">${this._icon('lock-closed', { size: 14, cls: 'icon-security', style: 'margin-right:4px;' })} ${this._t('lock_loading')}</div>
             <div class="chip" id="chipAlarmo">${this._icon('shield', { size: 14, cls: 'icon-alarmo', style: 'margin-right:4px;' })} ${this._t('alarmo_loading')}</div>
             <div class="chip" id="chipWeather">${this._icon('weather-partlycloudy', { size: 14, cls: 'icon-weather', style: 'margin-right:4px;' })} ${this._t('weather_loading')}</div>
@@ -2649,6 +2712,8 @@ class AtGlancePanel extends HTMLElement {
     // Top Bar Chips
     this.shadowRoot.getElementById('chipLights').addEventListener('click', () => this._openModal('lighting'));
     this.shadowRoot.getElementById('chipClimate').addEventListener('click', () => this._openModal('climate'));
+    const chipWindows = this.shadowRoot.getElementById('chipWindows');
+    if (chipWindows) chipWindows.addEventListener('click', () => this._openModal('windows'));
     this.shadowRoot.getElementById('chipLock').addEventListener('click', () => this._openModal('security'));
     this.shadowRoot.getElementById('chipAlarmo').addEventListener('click', () => this._openModal('alarmo'));
     this.shadowRoot.getElementById('chipWeather').addEventListener('click', () => this._openModal('weather'));

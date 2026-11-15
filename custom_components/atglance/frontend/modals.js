@@ -1640,12 +1640,12 @@ export const modalMethods = {
     } else if (type === 'security') {
       const badgeConf = this._config?.top_bar_badges?.lock;
       const iconColor = badgeConf?.icon_color || '#10b981';
-      title.innerHTML = `${this._icon('lock-closed', { size: 22, cls: 'icon-security', style: `margin-right:8px;color:${iconColor};` })} ${this._t('security')}${this._getModalAreaSuffix()}`;
+      title.innerHTML = `${this._icon('lock-closed', { size: 22, cls: 'icon-security', style: `margin-right:8px;color:${iconColor};` })} ${this._t('doors_and_locks') || this._t('security')}${this._getModalAreaSuffix()}`;
       const customLockEnts = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities))
         ? new Set(badgeConf.modal_entities.map(e => e.toLowerCase().trim()))
         : null;
       const configuredLock = customLockEnts ? badgeConf.modal_entities.find(e => e.startsWith('lock.')) : null;
-      const lockEntity = configuredLock || this._config.lock_entity || Object.keys(this._hass.states).find(e => e.startsWith('lock.'));
+      const lockEntity = configuredLock || this._getLockEntity();
       const lockObj = lockEntity ? this._hass.states[lockEntity] : null;
       const allDoorContacts = Object.keys(this._hass.states).filter(e => {
         if (customLockEnts) return customLockEnts.has(e.toLowerCase().trim()) && !e.startsWith('lock.');
@@ -1653,10 +1653,10 @@ export const modalMethods = {
         const dc = (this._hass.states[e].attributes?.device_class || '').toLowerCase();
         return dc === 'door' || dc === 'window' || dc === 'opening' || e.includes('fenster') || e.includes('turkontakt') || e.includes('door') || e.includes('window');
       });
-      const mainDoorId = this._config.door_entity || allDoorContacts.find(e => e.includes('haustur') || e.includes('front_door') || this._hass.states[e].attributes?.device_class === 'door');
+      const mainDoorId = this._getDoorEntity() || allDoorContacts.find(e => this._hass.states[e]?.attributes?.device_class === 'door' || e.includes('haustur') || e.includes('front_door'));
       const doorObj = mainDoorId ? this._hass.states[mainDoorId] : null;
-      const isLocked = lockObj && lockObj.state === 'locked';
-      const isDoorOpen = doorObj && doorObj.state === 'on';
+      const isLocked = lockObj ? lockObj.state === 'locked' : false;
+      const isDoorOpen = doorObj ? doorObj.state === 'on' : false;
 
       let stateText = '';
       let stateColor = '#10b981';
@@ -1664,30 +1664,54 @@ export const modalMethods = {
       let stateBg = 'rgba(16, 185, 129, 0.15)';
 
       if (isDoorOpen) {
-        stateText = this._t('door_open');
+        stateText = this._t('door_open') || 'Tür offen';
         stateColor = '#ef4444';
         stateIcon = this._icon('door-open', { size: 38, cls: 'icon-climate' });
         stateBg = 'rgba(239, 68, 68, 0.20)';
-      } else if (!isLocked) {
-        stateText = this._t('door_closed_unlocked');
+      } else if (!isLocked && lockObj) {
+        stateText = this._t('door_unlocked_short') || 'Entriegelt';
         stateColor = '#f59e0b';
         stateIcon = this._icon('lock-open', { size: 38, cls: 'icon-light' });
         stateBg = 'rgba(245, 158, 11, 0.18)';
       } else {
-        stateText = this._t('door_closed_locked');
+        stateText = this._t('door_locked_short') || 'Verriegelt';
         stateColor = '#10b981';
         stateIcon = this._icon('lock-closed', { size: 38, cls: 'icon-security' });
         stateBg = 'rgba(16, 185, 129, 0.15)';
       }
 
-      const contacts = allDoorContacts.map(eId => {
-        const dc = (this._hass.states[eId].attributes?.device_class || '').toLowerCase();
-        return {
+      const doorItems = [];
+      const windowItems = [];
+
+      allDoorContacts.forEach(eId => {
+        const cs = this._hass.states[eId];
+        const dc = (cs?.attributes?.device_class || '').toLowerCase();
+        const isWin = dc === 'window' || eId.includes('fenster') || eId.includes('window');
+        const item = {
           id: eId,
-          name: this._hass.states[eId].attributes?.friendly_name || eId,
-          iconName: (dc === 'door' || eId.includes('tur')) ? 'door' : 'window'
+          name: cs?.attributes?.friendly_name || eId,
+          isWindow: isWin,
+          isOpen: cs && cs.state === 'on',
+          iconName: isWin ? 'window' : 'door'
         };
+        if (isWin) windowItems.push(item);
+        else doorItems.push(item);
       });
+
+      const renderContactRows = (items, isWin) => items.map(c => `
+        <div class="control-row" style="padding:10px 14px;min-height:48px;">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;margin-right:10px;">
+            <div style="flex-shrink:0;">${this._icon(c.iconName, { size: 16, cls: c.isOpen ? 'icon-climate' : 'icon-security' })}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:14px;line-height:1.25;word-break:break-word;white-space:normal;color:var(--text-primary);">${c.name}</div>
+              <div style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;">
+                ${c.isOpen ? this._icon('alert-triangle', { size: 12, cls: 'icon-temp' }) + ' ' + (isWin ? (this._t('window_open') || 'Geöffnet') : (this._t('door_open') || 'Offen')) : this._icon('check', { size: 12, cls: 'icon-security' }) + ' ' + (isWin ? (this._t('window_closed') || 'Geschlossen') : (this._t('door_closed') || 'Geschlossen'))}
+              </div>
+            </div>
+          </div>
+          <span class="toggle-pill ${c.isOpen ? 'active-amber' : ''}" style="flex-shrink:0;">${c.isOpen ? (this._t('open') || 'Offen') : (this._t('closed') || 'Zu')}</span>
+        </div>
+      `).join('');
 
       body.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:16px;">
@@ -1695,50 +1719,129 @@ export const modalMethods = {
           <div style="background:${stateBg};border:1px solid ${stateColor};border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:14px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <div>
-                <div style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:700;">${this._t('entrance_status')}</div>
+                <div style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:700;">${this._t('entrance_status') || 'Eingangsbereich'}</div>
                 <div style="font-size:20px;font-weight:700;color:${stateColor};margin-top:2px;">${stateText}</div>
               </div>
               <div style="font-size:40px;">${stateIcon}</div>
             </div>
             <!-- Distinct Action Buttons -->
-            <div style="display:flex;gap:12px;margin-top:6px;">
-              <button class="btn-micro ${isLocked ? 'active-green' : ''}" id="btnLockAction" style="flex:1;padding:12px;font-size:14px;font-weight:700;">
-                ${this._icon('lock-closed', { size: 16, style: 'margin-right:6px;' })} ${this._t('lock_door')}
-              </button>
-              <button class="btn-micro ${!isLocked ? 'active-amber' : ''}" id="btnUnlockAction" style="flex:1;padding:12px;font-size:14px;font-weight:700;">
-                ${this._icon('lock-open', { size: 16, style: 'margin-right:6px;' })} ${this._t('unlock_door')}
-              </button>
-            </div>
+            ${lockEntity ? `
+              <div style="display:flex;gap:12px;margin-top:6px;">
+                <button class="btn-micro ${isLocked ? 'active-green' : ''}" id="btnLockAction" style="flex:1;padding:12px;font-size:14px;font-weight:700;">
+                  ${this._icon('lock-closed', { size: 16, style: 'margin-right:6px;' })} ${this._t('lock_door') || 'Verriegeln'}
+                </button>
+                <button class="btn-micro ${!isLocked ? 'active-amber' : ''}" id="btnUnlockAction" style="flex:1;padding:12px;font-size:14px;font-weight:700;">
+                  ${this._icon('lock-open', { size: 16, style: 'margin-right:6px;' })} ${this._t('unlock_door') || 'Entriegeln'}
+                </button>
+              </div>
+            ` : ''}
           </div>
 
-          <div style="font-size:15px;font-weight:700;margin-top:4px;">${this._t('window_door_contacts')}</div>
+          <!-- Doors Section -->
+          ${doorItems.length > 0 ? `
+            <div>
+              <div style="font-size:15px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--text-primary);">
+                <ha-icon icon="mdi:door" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
+                <span>${this._t('doors_and_locks') || 'Türen & Zugänge'}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">
+                ${renderContactRows(doorItems, false)}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Windows Section -->
+          ${windowItems.length > 0 ? `
+            <div style="margin-top:4px;">
+              <div style="font-size:15px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--text-primary);">
+                <ha-icon icon="mdi:window-open-variant" style="--mdc-icon-size:18px;color:var(--accent);"></ha-icon>
+                <span>${this._t('windows_title') || 'Fenster'}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">
+                ${renderContactRows(windowItems, true)}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      const btnL = body.querySelector('#btnLockAction');
+      if (btnL) btnL.onclick = () => {
+        if (lockEntity) this._callService('lock', 'lock', { entity_id: lockEntity });
+      };
+      const btnU = body.querySelector('#btnUnlockAction');
+      if (btnU) btnU.onclick = () => {
+        if (lockEntity) this._callService('lock', 'unlock', { entity_id: lockEntity });
+      };
+    } else if (type === 'windows') {
+      const badgeConf = this._config?.top_bar_badges?.windows;
+      const iconColor = badgeConf?.icon_color || '#38bdf8';
+      title.innerHTML = `${this._icon('window-open', { size: 22, cls: 'icon-climate', style: `margin-right:8px;color:${iconColor};` })} ${this._t('windows_title') || 'Fenster'}${this._getModalAreaSuffix()}`;
+
+      const customWindowEnts = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities) && badgeConf.modal_entities.length > 0)
+        ? badgeConf.modal_entities
+        : null;
+
+      let windowEnts = [];
+      if (customWindowEnts) {
+        windowEnts = customWindowEnts.filter(e => this._hass?.states?.[e]);
+      } else {
+        const wSet = new Set();
+        (this._config.rooms || []).forEach(r => {
+          if (r.window_entity && this._hass?.states?.[r.window_entity]) wSet.add(r.window_entity);
+        });
+        if (this._hass?.states) {
+          Object.keys(this._hass.states).forEach(e => {
+            if (e.startsWith('binary_sensor.') && this._hass.states[e]?.attributes?.device_class === 'window') {
+              wSet.add(e);
+            }
+          });
+        }
+        windowEnts = Array.from(wSet);
+      }
+
+      const openWindows = windowEnts.filter(e => this._hass?.states?.[e]?.state === 'on');
+      const count = openWindows.length;
+      const stateColor = count > 0 ? '#f59e0b' : '#10b981';
+      const stateBg = count > 0 ? 'rgba(245, 158, 11, 0.18)' : 'rgba(16, 185, 129, 0.15)';
+      const stateIcon = this._icon(count > 0 ? 'window-open' : 'window', { size: 38, cls: count > 0 ? 'icon-climate' : 'icon-security' });
+      const stateText = count > 0
+        ? `${count} ${count === 1 ? (this._t('window_open_single') || 'Fenster geöffnet') : (this._t('windows_open_multi') || 'Fenster geöffnet')}`
+        : (this._t('windows_all_closed') || 'Alle Fenster geschlossen');
+
+      body.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div style="background:${stateBg};border:1px solid ${stateColor};border-radius:22px;padding:20px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;font-weight:700;">${this._t('window_status') || 'Fenster-Status'}</div>
+              <div style="font-size:20px;font-weight:700;color:${stateColor};margin-top:2px;">${stateText}</div>
+            </div>
+            <div style="font-size:40px;">${stateIcon}</div>
+          </div>
+
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">
-            ${contacts.map(c => {
-              const cs = this._hass.states[c.id];
+            ${windowEnts.map(eId => {
+              const cs = this._hass.states[eId];
               const isOpen = cs && cs.state === 'on';
+              const name = cs?.attributes?.friendly_name || eId;
               return `
                 <div class="control-row" style="padding:10px 14px;min-height:48px;">
                   <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;margin-right:10px;">
-                    <div style="flex-shrink:0;">${this._icon(c.iconName, { size: 16, cls: 'icon-security' })}</div>
+                    <div style="flex-shrink:0;">${this._icon('window', { size: 16, cls: isOpen ? 'icon-climate' : 'icon-security' })}</div>
                     <div style="flex:1;min-width:0;">
-                      <div style="font-weight:600;font-size:14px;line-height:1.25;word-break:break-word;white-space:normal;color:var(--text-primary);">${c.name}</div>
-                      <div style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;">${isOpen ? this._icon('alert-triangle', { size: 12, cls: 'icon-temp' }) + ' ' + this._t('window_open') : this._icon('check', { size: 12, cls: 'icon-security' }) + ' ' + this._t('window_closed')}</div>
+                      <div style="font-weight:600;font-size:14px;line-height:1.25;word-break:break-word;white-space:normal;color:var(--text-primary);">${name}</div>
+                      <div style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;">
+                        ${isOpen ? this._icon('alert-triangle', { size: 12, cls: 'icon-temp' }) + ' ' + (this._t('window_open') || 'Geöffnet') : this._icon('check', { size: 12, cls: 'icon-security' }) + ' ' + (this._t('window_closed') || 'Geschlossen')}
+                      </div>
                     </div>
                   </div>
-                  <span class="toggle-pill ${isOpen ? 'active-amber' : ''}" style="flex-shrink:0;">${isOpen ? this._t('open') : this._t('door_locked_short')}</span>
+                  <span class="toggle-pill ${isOpen ? 'active-amber' : ''}" style="flex-shrink:0;">${isOpen ? (this._t('open') || 'Offen') : (this._t('closed') || 'Zu')}</span>
                 </div>
               `;
             }).join('')}
           </div>
         </div>
       `;
-
-      body.querySelector('#btnLockAction').onclick = () => {
-        if (lockEntity) this._callService('lock', 'lock', { entity_id: lockEntity });
-      };
-      body.querySelector('#btnUnlockAction').onclick = () => {
-        if (lockEntity) this._callService('lock', 'unlock', { entity_id: lockEntity });
-      };
     } else if (type === 'alarmo') {
       const badgeConf = this._config?.top_bar_badges?.alarmo;
       const iconColor = badgeConf?.icon_color || '#6366f1';

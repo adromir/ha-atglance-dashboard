@@ -1123,6 +1123,7 @@ export const settingsMethods = {
                 { id: 'persons', key: 'top_bar_show_persons', label: this._t('presence') || 'Personen & Anwesenheit', icon: 'mdi:account-group', defaultColor: '#8b5cf6' },
                 { id: 'lights', key: 'top_bar_show_lights', label: this._t('lighting') || 'Beleuchtung', icon: 'mdi:lightbulb', defaultColor: '#f59e0b' },
                 { id: 'climate', key: 'top_bar_show_climate', label: this._t('climate') || 'Heizung & Klima', icon: 'mdi:thermometer', defaultColor: '#38bdf8' },
+                { id: 'windows', key: 'top_bar_show_windows', label: this._t('windows_title') || 'Fenster', icon: 'mdi:window-open-variant', defaultColor: '#38bdf8' },
                 { id: 'lock', key: 'top_bar_show_lock', label: this._t('security') || 'Schloss & Türen', icon: 'mdi:lock', defaultColor: '#10b981' },
                 { id: 'stats', key: 'top_bar_show_stats', label: this._t('stats') || 'Statistiken', icon: 'mdi:chart-bar', defaultColor: '#10b981' }
               ];
@@ -1722,6 +1723,13 @@ export const settingsMethods = {
               <div style="display:flex;gap:4px;align-items:center;">
                 <input type="text" list="dl_all_entities" id="cfgLock" value="${this._config.lock_entity || ''}" placeholder="lock.wohnungsschloss" style="flex:1;">
                 <button type="button" class="btn btn-sm btn-pick-global" data-target="cfgLock" data-domain="lock" title="Schloss-Entität suchen..." style="padding:6px 9px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon></button>
+              </div>
+            </div>
+            <div class="row">
+              <label>Haustür-Kontaktsensor (Optional)</label>
+              <div style="display:flex;gap:4px;align-items:center;">
+                <input type="text" list="dl_all_entities" id="cfgDoor" value="${this._config.door_entity || ''}" placeholder="binary_sensor.wohnungsschloss_tur" style="flex:1;">
+                <button type="button" class="btn btn-sm btn-pick-global" data-target="cfgDoor" data-domain="binary_sensor" title="Türkontakt-Entität suchen..." style="padding:6px 9px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><ha-icon icon="mdi:magnify" style="--mdc-icon-size:14px;"></ha-icon></button>
               </div>
             </div>
             <div class="row">
@@ -2547,6 +2555,7 @@ export const settingsMethods = {
             }
             if (targetId === 'cfgWeather') this._config.weather_entity = selectedId;
             else if (targetId === 'cfgLock') this._config.lock_entity = selectedId;
+            else if (targetId === 'cfgDoor') this._config.door_entity = selectedId;
             else if (targetId === 'cfgAllLights') this._config.all_lights_entity = selectedId;
             this._markSettingsDirty(container);
           }
@@ -3724,6 +3733,9 @@ export const settingsMethods = {
 
       const cLock = container.querySelector('#cfgLock');
       if (cLock) this._config.lock_entity = cLock.value.trim();
+
+      const cDoor = container.querySelector('#cfgDoor');
+      if (cDoor) this._config.door_entity = cDoor.value.trim();
 
       const cLights = container.querySelector('#cfgAllLights');
       if (cLights) this._config.all_lights_entity = cLights.value.trim();
