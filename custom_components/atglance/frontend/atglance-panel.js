@@ -2318,8 +2318,9 @@ class AtGlancePanel extends HTMLElement {
     badgeDefs.forEach(b => {
       if (!this._config.top_bar_badges[b.id] || !this._config.top_bar_badges[b.id].initialized) {
         const legacyShow = this._config['top_bar_show_' + b.id];
-        const isEnabled = legacyShow !== undefined ? (legacyShow !== false) : true;
         const initialEntities = b.findDefaults();
+        const fallbackEnabled = (b.id === 'warnings') ? (initialEntities.length > 0) : true;
+        const isEnabled = legacyShow !== undefined ? (legacyShow !== false) : fallbackEnabled;
         this._config.top_bar_badges[b.id] = {
           enabled: isEnabled,
           icon_color: this._config.top_bar_badges[b.id]?.icon_color || b.defaultColor,

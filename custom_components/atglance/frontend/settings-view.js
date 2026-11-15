@@ -1132,6 +1132,20 @@ export const settingsMethods = {
                 const isChecked = bConf.enabled !== undefined ? bConf.enabled : (this._config[b.key] !== false);
                 const iconColor = bConf.icon_color || b.defaultColor;
                 const modalEntities = Array.isArray(bConf.modal_entities) ? bConf.modal_entities : [];
+
+                let extraBadgeStatus = '';
+                if (b.id === 'warnings') {
+                  const states = this._hass?.states || {};
+                  const hasDwd = Object.keys(states).some(e => e.startsWith('sensor.region_') || e.includes('dwd_weather_warnings'));
+                  const hasNina = Object.keys(states).some(e => e.startsWith('binary_sensor.warning_') || e.includes('nina'));
+                  if (hasDwd || hasNina) {
+                    const activeNames = [hasDwd ? 'DWD ✓' : null, hasNina ? 'NINA ✓' : null].filter(Boolean).join(' & ');
+                    extraBadgeStatus = `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.15);color:#10b981;letter-spacing:0.3px;">${activeNames}</span>`;
+                  } else {
+                    extraBadgeStatus = `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(245,158,11,0.15);color:#f59e0b;letter-spacing:0.3px;">${this._t('not_configured') || 'Nicht eingerichtet'}</span>`;
+                  }
+                }
+
                 return `
                   <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -1142,6 +1156,7 @@ export const settingsMethods = {
                             <ha-icon icon="${b.icon}" style="--mdc-icon-size:18px;"></ha-icon>
                           </div>
                           <span style="font-weight:700;font-size:13px;color:var(--text-primary);">${b.label}</span>
+                          ${extraBadgeStatus}
                         </label>
                       </div>
 

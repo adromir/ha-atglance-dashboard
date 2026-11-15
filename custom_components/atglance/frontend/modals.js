@@ -2510,9 +2510,46 @@ export const modalMethods = {
       // Render Modal Content
       const totalCount = criticalWarnings.length + warnings.length + notices.length;
 
+      // Check installed warning services
+      const states = this._hass.states || {};
+      const dwdSensor = Object.keys(states).find(e => e.startsWith('sensor.region_') || e.includes('dwd_weather_warnings'));
+      const dwdRegion = dwdSensor ? (states[dwdSensor]?.attributes?.region_name || 'Aktiv') : null;
+
+      const ninaSensor = Object.keys(states).find(e => e.startsWith('binary_sensor.warning_') || e.includes('nina'));
+      const ninaRegion = ninaSensor ? (states[ninaSensor]?.attributes?.friendly_name?.replace(/ Warnung \d+$/, '') || 'Aktiv') : null;
+
+      const hasServices = Boolean(dwdRegion || ninaRegion);
+      const providersHtml = `
+        <div style="margin-top:16px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">
+            ${this._t('monitored_warning_services') || 'Überwachte Warndienste'}
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;">
+              <span class="chip-dot" style="background:${dwdRegion ? '#10b981' : '#6b7280'};"></span>
+              <span style="color:${dwdRegion ? 'var(--text-primary)' : 'var(--text-secondary)'};font-weight:600;">
+                DWD: ${dwdRegion ? `${dwdRegion} ✓` : (this._t('not_configured') || 'Nicht eingerichtet')}
+              </span>
+            </div>
+            <div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;">
+              <span class="chip-dot" style="background:${ninaRegion ? '#10b981' : '#6b7280'};"></span>
+              <span style="color:${ninaRegion ? 'var(--text-primary)' : 'var(--text-secondary)'};font-weight:600;">
+                NINA: ${ninaRegion ? `${ninaRegion} ✓` : (this._t('not_configured') || 'Nicht eingerichtet')}
+              </span>
+            </div>
+          </div>
+        </div>
+        ${!hasServices ? `
+          <div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;font-size:11px;display:flex;align-items:center;gap:6px;">
+            <ha-icon icon="mdi:information-outline" style="--mdc-icon-size:14px;"></ha-icon>
+            <span>${this._t('no_warning_services_hint') || 'Keine Wetter- oder Katastrophenwarndienste (DWD/NINA) in Home Assistant gefunden.'}</span>
+          </div>
+        ` : ''}
+      `;
+
       if (totalCount === 0) {
         body.innerHTML = `
-          <div class="alert-card-ok" style="text-align:center;padding:40px 20px;">
+          <div class="alert-card-ok" style="text-align:center;padding:32px 20px;">
             <div style="font-size:36px;color:#10b981;margin-bottom:12px;">
               <ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size:48px;"></ha-icon>
             </div>
@@ -2523,6 +2560,7 @@ export const modalMethods = {
               ${this._t('all_systems_normal') || 'Alle Sicherheitssensoren, Batteriestände und Wettermeldungen befinden sich im normalen Bereich.'}
             </div>
           </div>
+          ${providersHtml}
         `;
       } else {
         const renderItem = (item, cls) => `
@@ -2579,6 +2617,8 @@ export const modalMethods = {
                 </div>
               </div>
             ` : ''}
+
+            ${providersHtml}
           </div>
         `;
       }
