@@ -2241,20 +2241,124 @@ export const modalMethods = {
 
       // 1. Weather / Civil Protection / DWD / NINA
       Object.keys(this._hass.states).forEach(eId => {
-        if (eId.startsWith('binary_sensor.warning_') || eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings') || eId.includes('nina') || (eId.includes('warning') && !eId.includes('camera'))) {
-          const s = this._hass.states[eId];
-          if (!s) return;
+        const s = this._hass.states[eId];
+        if (!s) return;
+
+        // A. DWD Weather Warnings (sensor.region_* / dwd_weather_warnings)
+        if (eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings')) {
+          const count = parseInt(s.attributes?.warning_count ?? s.state, 10);
+          if (!isNaN(count) && count > 0) {
+            for (let i = 1; i <= count; i++) {
+              const headline = s.attributes?.[`warning_${i}_headline`] || s.attributes?.[`warning_${i}_name`] || 'Amtliche Unwetterwarnung';
+              const name = s.attributes?.[`warning_${i}_name`] || '';
+              const desc = s.attributes?.[`warning_${i}_description`] || '';
+              const instruction = s.attributes?.[`warning_${i}_instruction`] || '';
+              const level = parseInt(s.attributes?.[`warning_${i}_level`] || 1, 10);
+              const start = s.attributes?.[`warning_${i}_start`] || '';
+              const end = s.attributes?.[`warning_${i}_end`] || '';
+
+              const fullDesc = [
+                desc,
+                instruction ? `\n💡 Handlungsempfehlung: ${instruction}` : ''
+              ].filter(Boolean).join('\n');
+
+              let levelName = 'Wetterwarnung (Gelb)';
+              let iconColor = '#f59e0b';
+              let isCritical = false;
+              if (level === 2) {
+                levelName = 'Markante Wetterwarnung (Orange)';
+                iconColor = '#f97316';
+              } else if (level === 3) {
+                levelName = 'Unwetterwarnung (Rot)';
+                iconColor = '#ef4444';
+                isCritical = true;
+              } else if (level >= 4) {
+                levelName = 'Extreme Unwetterwarnung (Violett)';
+                iconColor = '#9333ea';
+                isCritical = true;
+              }
+
+              const timeStr = (start && end)
+                ? `Gültig von ${this._formatWarnTimestamp(start)} bis ${this._formatWarnTimestamp(end)}`
+                : (end ? `Gültig bis: ${this._formatWarnTimestamp(end)}` : '');
+
+              const item = {
+                title: headline,
+                badge: `DWD • ${levelName}`,
+                desc: fullDesc,
+                detail: timeStr,
+                entity_id: eId,
+                icon: 'mdi:weather-lightning',
+                iconColor: iconColor
+              };
+
+              if (isCritical) {
+                criticalWarnings.push(item);
+              } else {
+                warnings.push(item);
+              }
+            }
+          }
+        }
+
+        // B. NINA Civil Protection (binary_sensor.warning_* / nina)
+        else if (eId.startsWith('binary_sensor.warning_') || eId.includes('nina')) {
+          if (s.state === 'on') {
+            let headline = s.attributes?.Headline || s.attributes?.headline || s.attributes?.event;
+            if (!headline) {
+              const numMatch = eId.match(/_(\d+)$/);
+              const idx = numMatch ? numMatch[1] : '1';
+              const comp = Object.keys(this._hass.states).find(k => k.startsWith('sensor.') && k.includes('uberschrift') && k.endsWith(`_${idx}`));
+              if (comp && this._hass.states[comp]?.state && this._hass.states[comp].state !== 'unavailable') {
+                headline = this._hass.states[comp].state;
+              }
+            }
+            headline = headline || 'NINA Gefahrenwarnung';
+
+            const desc = s.attributes?.Description || s.attributes?.description || '';
+            const severity = (s.attributes?.Severity || s.attributes?.severity || '').toLowerCase();
+            const sender = s.attributes?.Sender || s.attributes?.sender || '';
+            const expires = s.attributes?.Expires || s.attributes?.expires || '';
+
+            const isCritical = severity === 'extreme' || severity === 'severe';
+            const iconColor = isCritical ? '#ef4444' : '#f59e0b';
+            const sevLabel = severity ? severity.toUpperCase() : 'WARNUNG';
+
+            const timeStr = expires ? `Gültig bis: ${this._formatWarnTimestamp(expires)}` : '';
+            const senderStr = sender ? `Herausgeber: ${sender}` : '';
+            const detailStr = [senderStr, timeStr].filter(Boolean).join(' • ');
+
+            const item = {
+              title: headline,
+              badge: `NINA • ${sevLabel}`,
+              desc: desc,
+              detail: detailStr,
+              entity_id: eId,
+              icon: 'mdi:alert-decagram',
+              iconColor: iconColor
+            };
+
+            if (isCritical) {
+              criticalWarnings.push(item);
+            } else {
+              warnings.push(item);
+            }
+          }
+        }
+
+        // C. General other warnings
+        else if (eId.includes('warning') && !eId.includes('camera') && !eId.includes('battery')) {
           const isNumActive = !isNaN(parseInt(s.state)) && parseInt(s.state) > 0;
           const isBoolActive = s.state === 'on';
           if (isNumActive || isBoolActive) {
-            const headline = s.attributes?.headline || s.attributes?.event || s.attributes?.description || s.attributes?.friendly_name || 'Amtliche Unwetterwarnung';
-            const desc = s.attributes?.description || s.attributes?.instruction || s.attributes?.details || s.attributes?.headline || '';
-            const severity = (s.attributes?.severity || '').toLowerCase();
-            const valid = s.attributes?.valid_to || s.attributes?.expires || '';
+            const headline = s.attributes?.headline || s.attributes?.Headline || s.attributes?.event || s.attributes?.description || s.attributes?.friendly_name || 'Amtliche Unwetterwarnung';
+            const desc = s.attributes?.description || s.attributes?.Description || s.attributes?.instruction || s.attributes?.details || '';
+            const severity = (s.attributes?.severity || s.attributes?.Severity || '').toLowerCase();
+            const valid = s.attributes?.valid_to || s.attributes?.expires || s.attributes?.Expires || '';
             const item = {
               title: headline,
               desc: desc !== headline ? desc : '',
-              detail: valid ? `Gültig bis: ${valid}` : '',
+              detail: valid ? `Gültig bis: ${this._formatWarnTimestamp(valid)}` : '',
               entity_id: eId,
               icon: 'mdi:alert-decagram',
               iconColor: '#ef4444'
@@ -2425,9 +2529,10 @@ export const modalMethods = {
           <div class="${cls}">
             <ha-icon icon="${item.icon}" style="--mdc-icon-size:24px;color:${item.iconColor};flex-shrink:0;margin-top:2px;"></ha-icon>
             <div style="flex:1;min-width:0;">
+              ${item.badge ? `<div style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.4px;background:rgba(255,255,255,0.08);color:${item.iconColor};margin-bottom:5px;border:1px solid ${item.iconColor}33;">${item.badge}</div>` : ''}
               <div style="font-size:14px;font-weight:700;color:var(--text-primary);line-height:1.3;">${item.title}</div>
-              ${item.desc ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:3px;line-height:1.4;">${item.desc}</div>` : ''}
-              ${item.detail ? `<div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:4px;">${item.detail}</div>` : ''}
+              ${item.desc ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.45;white-space:pre-wrap;">${item.desc}</div>` : ''}
+              ${item.detail ? `<div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:6px;">${item.detail}</div>` : ''}
             </div>
             ${item.entity_id ? `
               <button class="btn-micro btn-moreinfo" data-entity="${item.entity_id}" style="flex-shrink:0;padding:4px 8px;font-size:11px;">
@@ -3153,5 +3258,23 @@ export const modalMethods = {
         });
       }
     });
+  },
+
+  _formatWarnTimestamp(ts) {
+    if (!ts) return '';
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return ts;
+      const lang = this._getLang() === 'en' ? 'en-US' : (this._getLang() === 'id' ? 'id-ID' : 'de-DE');
+      return d.toLocaleString(lang, {
+        weekday: 'short',
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return ts;
+    }
   }
 };

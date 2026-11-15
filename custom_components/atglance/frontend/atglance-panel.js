@@ -1025,23 +1025,75 @@ class AtGlancePanel extends HTMLElement {
     if (chipWarning) {
       const badgeConf = this._config?.top_bar_badges?.warnings;
       const isEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_warnings !== false);
-      let activeWarning = null;
+      const activeAlerts = [];
       if (isEnabled) {
-        Object.keys(this._hass.states).forEach(eId => {
-          if (eId.startsWith('binary_sensor.warning_') || eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings') || eId.includes('nina')) {
-            const s = this._hass.states[eId];
-            if (s && ((s.state === 'on') || (!isNaN(parseInt(s.state)) && parseInt(s.state) > 0))) {
-              activeWarning = s.attributes?.headline || s.attributes?.event || s.attributes?.description || s.attributes?.friendly_name || 'Amtliche Warnung!';
+        const states = this._hass.states || {};
+        Object.keys(states).forEach(eId => {
+          const s = states[eId];
+          if (!s) return;
+
+          // 1. DWD Weather Warnings
+          if (eId.startsWith('sensor.region_') || eId.includes('dwd_weather_warnings')) {
+            const count = parseInt(s.attributes?.warning_count ?? s.state, 10);
+            if (!isNaN(count) && count > 0) {
+              for (let i = 1; i <= Math.min(count, 5); i++) {
+                const name = s.attributes?.[`warning_${i}_name`] || s.attributes?.[`warning_${i}_headline`];
+                if (name) {
+                  activeAlerts.push({
+                    text: `DWD: ${name}`,
+                    level: parseInt(s.attributes?.[`warning_${i}_level`] || 1, 10)
+                  });
+                }
+              }
+              if (activeAlerts.length === 0) {
+                const name = s.attributes?.warning_1_name || s.attributes?.warning_1_headline;
+                if (name) activeAlerts.push({ text: `DWD: ${name}`, level: 1 });
+              }
+            }
+          }
+
+          // 2. NINA Civil Protection Warnings
+          else if (eId.startsWith('binary_sensor.warning_') || eId.includes('nina')) {
+            if (s.state === 'on') {
+              let headline = s.attributes?.Headline || s.attributes?.headline || s.attributes?.event;
+              if (!headline) {
+                const numMatch = eId.match(/_(\d+)$/);
+                const idx = numMatch ? numMatch[1] : '1';
+                const comp = Object.keys(states).find(k => k.startsWith('sensor.') && k.includes('uberschrift') && k.endsWith(`_${idx}`));
+                if (comp && states[comp]?.state && states[comp].state !== 'unavailable') {
+                  headline = states[comp].state;
+                }
+              }
+              const sev = (s.attributes?.Severity || s.attributes?.severity || '').toLowerCase();
+              const lvl = (sev === 'extreme' || sev === 'severe') ? 3 : 1;
+              activeAlerts.push({
+                text: headline ? `NINA: ${headline}` : 'NINA Warnung',
+                level: lvl
+              });
+            }
+          }
+
+          // 3. Other generic warnings
+          else if (eId.includes('warning') && !eId.includes('camera') && !eId.includes('battery')) {
+            if (s.state === 'on' || (!isNaN(parseInt(s.state, 10)) && parseInt(s.state, 10) > 0)) {
+              const head = s.attributes?.headline || s.attributes?.Headline || s.attributes?.event || s.attributes?.friendly_name;
+              if (head) activeAlerts.push({ text: head, level: 2 });
             }
           }
         });
       }
-      if (activeWarning) {
-        const iconColor = badgeConf?.icon_color || '#ef4444';
+      if (activeAlerts.length > 0) {
+        const maxLevel = Math.max(...activeAlerts.map(a => a.level || 1));
+        const iconColor = maxLevel >= 3 ? '#ef4444' : (badgeConf?.icon_color || '#f59e0b');
+        const displayText = activeAlerts.length === 1 
+          ? activeAlerts[0].text 
+          : `${activeAlerts.length} ${this._t('warnings_label') || 'Warnungen'}: ${activeAlerts[0].text}`;
         chipWarning.style.display = 'inline-flex';
-        chipWarning.innerHTML = `<span class="chip-dot" style="background:${iconColor};box-shadow:0 0 8px ${iconColor};"></span> ${this._icon('alert-circle', { size: 14, color: iconColor, style: 'margin-right:4px;' })} ${activeWarning}`;
+        chipWarning.title = activeAlerts.map(a => a.text).join('\n');
+        chipWarning.innerHTML = `<span class="chip-dot" style="background:${iconColor};box-shadow:0 0 8px ${iconColor};"></span> ${this._icon('alert-circle', { size: 14, color: iconColor, style: 'margin-right:4px;' })} ${displayText}`;
       } else {
         chipWarning.style.display = 'none';
+        chipWarning.title = '';
       }
     }
 
