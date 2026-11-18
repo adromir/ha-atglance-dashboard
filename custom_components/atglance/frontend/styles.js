@@ -90,15 +90,12 @@ export const ATGLANCE_STYLES = `
           transition: background 0.5s ease, color 0.3s ease;
         }
 
-        /* --- DEFAULT HOME ASSISTANT THEME OVERRIDE --- */
-        .dashboard-root.theme-default {
-          background: var(--lovelace-background, var(--primary-background-color, #fafafa)) !important;
+        /* --- DEFAULT HOME ASSISTANT THEME OVERRIDE (only when no background preset is active) --- */
+        .dashboard-root.theme-default:not([class*="bg-"]) {
+          background: var(--lovelace-background, var(--primary-background-color, #fafafa));
         }
-        .dashboard-root.theme-default.theme-dark {
-          background: var(--lovelace-background, var(--primary-background-color, #111111)) !important;
-        }
-        .dashboard-root.theme-default .liquid-backdrop {
-          display: none !important;
+        .dashboard-root.theme-default.theme-dark:not([class*="bg-"]) {
+          background: var(--lovelace-background, var(--primary-background-color, #111111));
         }
 
         /* --- BACKGROUND STYLE PRESETS --- */

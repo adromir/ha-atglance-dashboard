@@ -1048,20 +1048,27 @@ class AtGlancePanel extends HTMLElement {
     }
 
     // 3. Update Chips
-    // Persons Chips (Dynamically rendered for all or configured persons)
+    // Persons Chips (Configured via top_bar_badges.persons identically to other built-in badges)
     const personsContainer = this.shadowRoot.getElementById('chipsPersonsList');
     if (personsContainer) {
-      if (this._config.top_bar_show_persons === false) {
+      const badgeConf = this._config?.top_bar_badges?.persons;
+      const isPersonsEnabled = badgeConf?.enabled !== undefined ? badgeConf.enabled : (this._config.top_bar_show_persons !== false);
+      if (!isPersonsEnabled) {
         personsContainer.innerHTML = '';
+        this._lastPersonsKey = '';
       } else {
-        const configuredPersons = this._config?.top_bar_persons;
+        const configuredPersons = (badgeConf?.initialized && Array.isArray(badgeConf.modal_entities))
+          ? badgeConf.modal_entities
+          : this._config?.top_bar_persons;
         const allPersonIds = Object.keys(this._hass.states).filter(e => e.startsWith('person.'));
         const activePersonIds = (Array.isArray(configuredPersons) && configuredPersons.length > 0)
           ? configuredPersons.filter(id => this._hass.states[id])
-          : allPersonIds;
+          : (badgeConf?.initialized ? [] : allPersonIds);
+        const personsAccentColor = badgeConf?.icon_color || '';
 
         if (activePersonIds.length === 0) {
           personsContainer.innerHTML = '';
+          this._lastPersonsKey = '';
         } else {
           let homeCount = 0;
           const personData = activePersonIds.map(pId => {
@@ -1085,11 +1092,11 @@ class AtGlancePanel extends HTMLElement {
             summaryLabel = `${homeCount}/${personData.length} daheim`;
           }
 
-          const personsKey = personData.map(p => `${p.id}:${p.isHome}:${p.statusText}:${p.pic || ''}`).join('|') + `|${summaryLabel}`;
+          const personsKey = personData.map(p => `${p.id}:${p.isHome}:${p.statusText}:${p.pic || ''}`).join('|') + `|${summaryLabel}|${personsAccentColor}`;
           if (this._lastPersonsKey !== personsKey || !personsContainer.querySelector('#chipPersonsCluster')) {
             this._lastPersonsKey = personsKey;
             personsContainer.innerHTML = `
-              <div class="chip chip-persons-cluster" id="chipPersonsCluster" title="Anwesenheit (${summaryLabel})">
+              <div class="chip chip-persons-cluster" id="chipPersonsCluster" title="Anwesenheit (${summaryLabel})" ${personsAccentColor ? `style="border-color:${personsAccentColor}44;"` : ''}>
                 <!-- Inline layout anchor: flex width never changes -->
                 <div class="cluster-anchor">
                   <div class="cluster-stack">

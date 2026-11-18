@@ -1208,30 +1208,6 @@ export const settingsMethods = {
             })()}
           </div>
 
-          <div style="border-top:1px solid var(--border-subtle);padding-top:14px;margin-top:14px;">
-            <div style="font-weight:600;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-              <ha-icon icon="mdi:account-multiple-outline" style="--mdc-icon-size:16px;color:var(--accent);"></ha-icon>
-              <span>${this._t('presence') || 'Personen-Auswahl'} (Angezeigte Personen in Top-Bar)</span>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;" id="topPersonsSelection">
-              ${(() => {
-                const allPersons = this._hass ? Object.keys(this._hass.states).filter(e => e.startsWith('person.')) : [];
-                const confPersons = this._config.top_bar_persons || [];
-                return allPersons.map(pId => {
-                  const s = this._hass.states[pId];
-                  const name = s?.attributes?.friendly_name || pId.replace('person.', '');
-                  const isChecked = confPersons.length === 0 || confPersons.includes(pId);
-                  return `
-                    <label style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;">
-                      <input type="checkbox" class="chk-person-select" data-person-id="${pId}" ${isChecked ? 'checked' : ''} style="cursor:pointer;accent-color:var(--accent);">
-                      <span>${name}</span>
-                      <code style="font-size:10px;color:var(--text-secondary);">${pId}</code>
-                    </label>
-                  `;
-                }).join('') || '<span style="font-size:12px;color:var(--text-secondary);">Keine Personen im System gefunden.</span>';
-              })()}
-            </div>
-          </div>
         </div>
 
         <!-- Section 2: Eigene Badges -->
@@ -1283,33 +1259,40 @@ export const settingsMethods = {
                       <button type="button" class="btn btn-sm btn-pick-custom-chip-icon" data-cidx="${cIdx}" style="padding:4px 8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
                         <ha-icon icon="mdi:palette-outline" style="--mdc-icon-size:13px;"></ha-icon> Icon
                       </button>
+                      <button type="button" class="btn btn-sm btn-toggle-custom-modal" data-cidx="${cIdx}" style="padding:4px 10px;font-size:11px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);color:var(--accent);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                        <ha-icon icon="mdi:tune" style="--mdc-icon-size:13px;"></ha-icon>
+                        <span>Modal (${modalEntities.length})</span>
+                        <ha-icon icon="mdi:chevron-down" style="--mdc-icon-size:14px;" class="chevron-custom-modal" data-cidx="${cIdx}"></ha-icon>
+                      </button>
                       <button type="button" class="btn-micro btn-del-custom-chip" data-cidx="${cIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:4px;" title="Badge löschen">
                         <ha-icon icon="mdi:close" style="--mdc-icon-size:15px;"></ha-icon>
                       </button>
                     </div>
 
-                    <!-- Modal Configuration for this Chip -->
-                    <div style="padding:8px 10px;background:rgba(0,0,0,0.18);border-radius:8px;border:1px dashed var(--border-subtle);display:flex;flex-direction:column;gap:6px;">
+                    <!-- Collapsible Modal Entities Panel (identical to built-in badges) -->
+                    <div id="customChipModalPanel_${cIdx}" style="display:none;padding:10px 12px;background:rgba(0,0,0,0.18);border-radius:8px;border:1px dashed var(--border-subtle);flex-direction:column;gap:8px;">
                       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-                        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:600;">
-                          <input type="checkbox" class="chk-custom-chip-modal" data-cidx="${cIdx}" ${c.open_modal ? 'checked' : ''} style="cursor:pointer;accent-color:var(--accent);">
-                          <span>${this._t('open_action_modal') || 'Eigenes Modal beim Klick öffnen'}</span>
-                        </label>
-                        <button type="button" class="btn btn-sm btn-add-custom-chip-modal-entity" data-cidx="${cIdx}" style="padding:2px 8px;font-size:11px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
-                          <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;"></ha-icon> ${this._t('add_entity_to_modal') || 'Entität zum Modal hinzufügen'}
+                        <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Im Modal angezeigte Entitäten:</span>
+                        <button type="button" class="btn btn-sm btn-add-custom-chip-modal-entity" data-cidx="${cIdx}" style="padding:3px 8px;font-size:11px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:var(--accent);border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                          <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;"></ha-icon> Entität hinzufügen
                         </button>
                       </div>
-                      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                      <div style="display:flex;flex-wrap:wrap;gap:6px;" id="customChipModalEntitiesList_${cIdx}">
                         ${modalEntities.length === 0 ? `
-                          <span style="font-size:11px;color:var(--text-secondary);font-style:italic;">Keine Entitäten zugewiesen (wird als Standard-Schalter/Info behandelt)</span>
-                        ` : modalEntities.map((mEnt, mIdx) => `
-                          <span class="chip" style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);display:inline-flex;align-items:center;gap:4px;">
-                            <span style="font-family:monospace;">${mEnt}</span>
-                            <button type="button" class="btn-micro btn-del-custom-chip-modal-ent" data-cidx="${cIdx}" data-eidx="${mIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
-                              <ha-icon icon="mdi:close" style="--mdc-icon-size:12px;"></ha-icon>
-                            </button>
-                          </span>
-                        `).join('')}
+                          <span style="font-size:11px;color:var(--text-secondary);font-style:italic;">Keine Entitäten zugewiesen.</span>
+                        ` : modalEntities.map((mEnt, mIdx) => {
+                          const s = this._hass?.states[mEnt];
+                          const fname = s?.attributes?.friendly_name || mEnt;
+                          return `
+                            <span class="chip" style="font-size:11px;padding:3px 8px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);display:inline-flex;align-items:center;gap:6px;">
+                              <span title="${mEnt}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${fname}</span>
+                              <code style="font-size:9px;color:var(--text-secondary);font-family:monospace;">${mEnt}</code>
+                              <button type="button" class="btn-micro btn-del-custom-chip-modal-ent" data-cidx="${cIdx}" data-eidx="${mIdx}" style="color:#ef4444;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;" title="Entfernen">
+                                <ha-icon icon="mdi:close" style="--mdc-icon-size:12px;"></ha-icon>
+                              </button>
+                            </span>
+                          `;
+                        }).join('')}
                       </div>
                     </div>
                   </div>
@@ -2045,8 +2028,11 @@ export const settingsMethods = {
       window.addEventListener('beforeunload', this._boundBeforeUnload);
     }
 
-    container.addEventListener('input', () => this._markSettingsDirty(container));
-    container.addEventListener('change', () => this._markSettingsDirty(container));
+    if (!container._dirtyListenersBound) {
+      container._dirtyListenersBound = true;
+      container.addEventListener('input', () => this._markSettingsDirty(container));
+      container.addEventListener('change', () => this._markSettingsDirty(container));
+    }
 
     const discardBtn = container.querySelector('#btnDiscardSettings');
     if (discardBtn) {
@@ -3197,12 +3183,17 @@ export const settingsMethods = {
       };
     });
 
-    container.querySelectorAll('.chk-custom-chip-modal').forEach(chk => {
-      chk.onchange = () => {
-        const cIdx = parseInt(chk.getAttribute('data-cidx'));
-        if (this._config.top_bar_custom_chips?.[cIdx]) {
-          this._config.top_bar_custom_chips[cIdx].open_modal = chk.checked;
-          this._markSettingsDirty(container);
+    container.querySelectorAll('.btn-toggle-custom-modal').forEach(btn => {
+      btn.onclick = () => {
+        const cIdx = btn.getAttribute('data-cidx');
+        const panel = container.querySelector('#customChipModalPanel_' + cIdx);
+        const chevron = btn.querySelector('.chevron-custom-modal');
+        if (panel) {
+          const isHidden = panel.style.display === 'none';
+          panel.style.display = isHidden ? 'flex' : 'none';
+          if (chevron) {
+            chevron.setAttribute('icon', isHidden ? 'mdi:chevron-up' : 'mdi:chevron-down');
+          }
         }
       };
     });
@@ -3223,6 +3214,10 @@ export const settingsMethods = {
                 chip.open_modal = true;
                 this._markSettingsDirty(container);
                 this._renderSettingsContent(container, isModal);
+                setTimeout(() => {
+                  const p = container.querySelector('#customChipModalPanel_' + cIdx);
+                  if (p) p.style.display = 'flex';
+                }, 50);
               }
             }
           }
@@ -3234,10 +3229,16 @@ export const settingsMethods = {
       btn.onclick = () => {
         const cIdx = parseInt(btn.getAttribute('data-cidx'));
         const eIdx = parseInt(btn.getAttribute('data-eidx'));
-        if (this._config.top_bar_custom_chips?.[cIdx]?.modal_entities) {
-          this._config.top_bar_custom_chips[cIdx].modal_entities.splice(eIdx, 1);
+        const chip = this._config.top_bar_custom_chips?.[cIdx];
+        if (chip?.modal_entities) {
+          chip.modal_entities.splice(eIdx, 1);
+          chip.open_modal = chip.modal_entities.length > 0;
           this._markSettingsDirty(container);
           this._renderSettingsContent(container, isModal);
+          setTimeout(() => {
+            const p = container.querySelector('#customChipModalPanel_' + cIdx);
+            if (p) p.style.display = 'flex';
+          }, 50);
         }
       };
     });
@@ -3803,12 +3804,8 @@ export const settingsMethods = {
       const chkTMedia = container.querySelector('#chkTopMedia');
       if (chkTMedia) this._config.top_bar_show_media = chkTMedia.checked;
 
-      const selPersons = [];
-      container.querySelectorAll('.chk-person-select:checked').forEach(c => {
-        selPersons.push(c.getAttribute('data-person-id'));
-      });
-      if (container.querySelector('#topPersonsSelection')) {
-        this._config.top_bar_persons = selPersons;
+      if (this._config.top_bar_badges?.persons?.initialized && Array.isArray(this._config.top_bar_badges.persons.modal_entities)) {
+        this._config.top_bar_persons = [...this._config.top_bar_badges.persons.modal_entities];
       }
 
       // Collect helper controls
@@ -3927,12 +3924,13 @@ export const settingsMethods = {
         }
       });
 
+      // Clear dirty flag before _saveDashboardConfig triggers _render() so the floating Save bar hides on first click
+      this._clearSettingsDirty(container);
       // Persist via WebSocket to Lovelace
       await this._saveDashboardConfig(this._config);
-      this._clearSettingsDirty(container);
 
       // Toast feedback
-      const toast = container.querySelector('#settingsToast');
+      const toast = this.shadowRoot?.querySelector('#settingsToast') || container.querySelector('#settingsToast');
       if (toast) {
         toast.style.display = 'block';
         setTimeout(() => { if (toast) toast.style.display = 'none'; }, 4000);
@@ -3977,14 +3975,14 @@ export const settingsMethods = {
 
   _markSettingsDirty(container) {
     this._isSettingsDirty = true;
-    const fab = container?.querySelector('#settingsFloatingFab') || this.shadowRoot?.querySelector('#settingsFloatingFab');
+    const fab = this.shadowRoot?.querySelector('#settingsFloatingFab') || container?.querySelector('#settingsFloatingFab');
     if (fab) fab.style.display = 'flex';
   },
 
   _clearSettingsDirty(container) {
     this._isSettingsDirty = false;
     this._cleanConfigSnapshot = JSON.parse(JSON.stringify(this._config));
-    const fab = container?.querySelector('#settingsFloatingFab') || this.shadowRoot?.querySelector('#settingsFloatingFab');
+    const fab = this.shadowRoot?.querySelector('#settingsFloatingFab') || container?.querySelector('#settingsFloatingFab');
     if (fab) fab.style.display = 'none';
   },
 
